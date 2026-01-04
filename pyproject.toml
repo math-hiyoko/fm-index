@@ -1,0 +1,98 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "fm-index"
+dynamic = ["version"]
+description = "High-performance FM-index powered by Rust, enabling fast substring search and count/locate queries."
+authors = [
+    {name = "Koki Watanabe"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+keywords = [
+    "fm-index",
+    "full-text index",
+    "compressed index",
+    "substring search",
+    "pattern matching",
+    "succinct",
+    "information retrieval",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Indexing",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "maturin>=1.9,<2.0",
+    "numpy>=2.0.2",
+    "pytest>=7.0",
+    "pytest-benchmark>=4.0",
+]
+dev = [
+    "maturin>=1.9,<2.0",
+    "numpy>=2.0.2",
+    "pdoc>=16.0",
+    "pytest>=7.0",
+    "pytest-benchmark>=4.0",
+    "ruff>=0.14",
+]
+
+[project.urls]
+homepage = "https://github.com/math-hiyoko/fm-index"
+documentation = "https://math-hiyoko.github.io/fm-index"
+repository = "https://github.com/math-hiyoko/fm-index"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "benchmarks"]
+python_files = ["test_*.py", "bench_*.py"]
+python_classes = ["Test*", "Bench*"]
+python_functions = ["test_*", "bench_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--benchmark-columns=mean,stddev,min,max",
+    "--benchmark-group-by=func",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fm_index"]

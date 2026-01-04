@@ -1,0 +1,331 @@
+use std::{collections, hash, iter, ops};
+
+use num_traits::{PrimInt, Unsigned};
+use pyo3::PyResult;
+
+use super::base_fm_index::{BaseFMIndex, SUFFIX_ARRAY_SAMPLING_RATE};
+use crate::utils::{bit_vector::BitVector, bit_width::BitWidth, suffix_array::suffix_array};
+
+#[derive(Clone)]
+pub(crate) struct MultiFMIndex<
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
+> {
+    doc_len: Vec<usize>,
+    base_fm_index: BaseFMIndex<Element>,
+    doc: collections::HashMap<usize, usize>, // suffix array index -> doc_id
+    pos: Vec<(usize, usize)>,                // (doc_id, offset)
+}
+
+impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
+    MultiFMIndex<Element>
+{
+    pub(crate) fn new(data: &[Vec<Element>]) -> PyResult<Self> {
+        let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
+
+        let data = data
+            .iter()
+            .flat_map(|doc| {
+                doc.iter()
+                    .map(|&symbol| Some(symbol))
+                    .chain(iter::once(None))
+            })
+            .collect::<Vec<_>>();
+
+        let alphabet_max = data.iter().max().copied().flatten();
+        let suffix_idx = suffix_array(&data, alphabet_max);
+
+        let base_fm_index = BaseFMIndex::new_with_suffix_array(&data, &suffix_idx)?;
+
+        let data_none_bitvector =
+            BitVector::new(&data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
+
+        let mut doc = collections::HashMap::with_capacity(doc_len.len());
+        for idx in 1..=doc_len.len() {
+            let k = base_fm_index
+                .burrows_wheeler_transform()
+                .select(&None, idx)?
+                .unwrap();
+            let doc_id = data_none_bitvector.rank(true, suffix_idx[k])?;
+            doc.insert(k, doc_id);
+        }
+
+        let mut pos = Vec::with_capacity(data.len() / SUFFIX_ARRAY_SAMPLING_RATE + 1);
+        for &suffix_idx in suffix_idx.iter().step_by(SUFFIX_ARRAY_SAMPLING_RATE) {
+            let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
+            let doc_start_idx = if doc_id == 0 {
+                0
+            } else {
+                data_none_bitvector.select(true, doc_id)?.unwrap() + 1
+            };
+            let offset = suffix_idx - doc_start_idx;
+            pos.push((doc_id, offset));
+        }
+
+        Ok(MultiFMIndex {
+            doc_len,
+            base_fm_index,
+            doc,
+            pos,
+        })
+    }
+
+    fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
+        let mut step = 0usize;
+        loop {
+            if self
+                .base_fm_index
+                .burrows_wheeler_transform()
+                .access(k)?
+                .is_none()
+            {
+                let doc_id = self.doc[&k];
+                let offset = step;
+                return Ok((doc_id, offset));
+            }
+            if k.is_multiple_of(SUFFIX_ARRAY_SAMPLING_RATE) {
+                let (doc_id, mut offset) = self.pos[k / SUFFIX_ARRAY_SAMPLING_RATE];
+                offset += step;
+                return Ok((doc_id, offset));
+            }
+            step += 1;
+            k = self.base_fm_index.lf_mapping(k)?;
+        }
+    }
+
+    pub(crate) fn len(&self) -> PyResult<usize> {
+        Ok(self.doc_len.len())
+    }
+
+    pub(crate) fn values(&self) -> PyResult<Vec<Vec<Element>>> {
+        let mut values = self
+            .base_fm_index
+            .values()?
+            .split(|value| value.is_none())
+            .map(|slice| slice.iter().filter_map(|&value| value).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        values = values[..values.len() - 1].to_vec(); // Remove the last empty slice after the final None
+
+        Ok(values)
+    }
+
+    pub(crate) fn count_all(&self, pattern: &[Element]) -> PyResult<usize> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        Ok(end - start)
+    }
+
+    pub(crate) fn count(
+        &self,
+        pattern: &[Element],
+    ) -> PyResult<collections::HashMap<usize, usize>> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        let mut result = collections::HashMap::new();
+        for k in start..end {
+            let (doc_id, _) = self.doc_offset(k)?;
+            result
+                .entry(doc_id)
+                .and_modify(|count| *count += 1usize)
+                .or_insert(1usize);
+        }
+
+        Ok(result)
+    }
+
+    pub(crate) fn locate(
+        &self,
+        pattern: &[Element],
+    ) -> PyResult<collections::HashMap<usize, Vec<usize>>> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        let mut result = collections::HashMap::new();
+        for k in start..end {
+            let (doc_id, offset) = self.doc_offset(k)?;
+            result
+                .entry(doc_id)
+                .and_modify(|offsets: &mut Vec<usize>| offsets.push(offset))
+                .or_insert(vec![offset]);
+        }
+
+        Ok(result)
+    }
+
+    pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        let mut result = Vec::new();
+        if start != end {
+            let start_rank = self
+                .base_fm_index
+                .burrows_wheeler_transform()
+                .rank(&None, start)?;
+            let end_rank = self
+                .base_fm_index
+                .burrows_wheeler_transform()
+                .rank(&None, end)?;
+            for rank in start_rank + 1..=end_rank {
+                let k = self
+                    .base_fm_index
+                    .burrows_wheeler_transform()
+                    .select(&None, rank)?
+                    .unwrap();
+                let doc_id = self.doc[&k];
+                result.push(doc_id);
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .chain(iter::once(None))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        let mut result = Vec::new();
+        for k in start..end {
+            let (doc_id, _) = self.doc_offset(k)?;
+            result.push(doc_id);
+        }
+
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use num_traits::Zero;
+
+    use super::*;
+
+    #[test]
+    fn test_multi_fm_index_empty() {
+        let data = [];
+        let fm_index = MultiFMIndex::new(&data).unwrap();
+
+        assert!(fm_index.len().unwrap().is_zero());
+        assert!(fm_index.values().unwrap().is_empty());
+        assert!(fm_index.count_all(&[]).unwrap().is_zero());
+        assert!(fm_index.count_all(b"a").unwrap().is_zero());
+        assert!(fm_index.count(&[]).unwrap().is_empty());
+        assert!(fm_index.count(b"a").unwrap().is_empty());
+        assert!(fm_index.locate(&[]).unwrap().is_empty());
+        assert!(fm_index.locate(b"a").unwrap().is_empty());
+        assert!(fm_index.starts_with(&[]).unwrap().is_empty());
+        assert!(fm_index.starts_with(b"a").unwrap().is_empty());
+        assert!(fm_index.ends_with(&[]).unwrap().is_empty());
+        assert!(fm_index.ends_with(b"a").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_multi_fm_index_empties() {
+        let data = [vec![], vec![], vec![]];
+        let fm_index = MultiFMIndex::new(&data).unwrap();
+
+        assert_eq!(fm_index.len().unwrap(), 3);
+        assert_eq!(
+            fm_index.values().unwrap(),
+            [vec![] as Vec<u8>, vec![] as Vec<u8>, vec![] as Vec<u8>]
+        );
+        assert_eq!(fm_index.count_all(&[]).unwrap(), 3);
+        assert_eq!(fm_index.count_all(b"a").unwrap(), 0);
+        assert_eq!(
+            fm_index.count(&[]).unwrap(),
+            collections::HashMap::from([(0usize, 1usize), (1usize, 1usize), (2usize, 1usize)])
+        );
+        assert!(fm_index.count(b"a").unwrap().is_empty());
+        assert_eq!(
+            fm_index.locate(&[]).unwrap(),
+            collections::HashMap::from([(0, vec![0]), (1, vec![0]), (2, vec![0])])
+        );
+        assert!(fm_index.locate(b"a").unwrap().is_empty());
+        assert_eq!(fm_index.starts_with(&[]).unwrap(), [2, 1, 0]);
+        assert!(fm_index.starts_with(b"a").unwrap().is_empty());
+        assert_eq!(fm_index.ends_with(&[]).unwrap(), [2, 1, 0]);
+        assert!(fm_index.ends_with(b"a").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_multi_fm_index_single_char() {
+        let data = [
+            b"aaaaaaaaaa".to_vec(),
+            b"".to_vec(),
+            b"aaaaaa".to_vec(),
+            b"aaaaaaaa".to_vec(),
+        ];
+        let fm_index = MultiFMIndex::new(&data).unwrap();
+
+        assert_eq!(fm_index.len().unwrap(), 4);
+        assert_eq!(fm_index.values().unwrap(), data);
+        assert_eq!(fm_index.count_all(&[]).unwrap(), 28);
+        assert_eq!(fm_index.count_all(b"aa").unwrap(), 21);
+        assert_eq!(
+            fm_index.count(&[]).unwrap(),
+            collections::HashMap::from([(0, 11), (1, 1), (2, 7), (3, 9)])
+        );
+        assert_eq!(
+            fm_index.count(b"aa").unwrap(),
+            collections::HashMap::from([(0, 9), (2, 5), (3, 7)])
+        );
+        assert_eq!(
+            fm_index.locate(&[]).unwrap(),
+            collections::HashMap::from([
+                (0, vec![10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
+                (1, vec![0]),
+                (2, vec![6, 5, 4, 3, 2, 1, 0]),
+                (3, vec![8, 7, 6, 5, 4, 3, 2, 1, 0])
+            ])
+        );
+        assert_eq!(
+            fm_index.locate(b"aa").unwrap(),
+            collections::HashMap::from([
+                (0, vec![8, 7, 6, 5, 4, 3, 2, 1, 0]),
+                (2, vec![4, 3, 2, 1, 0]),
+                (3, vec![6, 5, 4, 3, 2, 1, 0])
+            ])
+        );
+        assert_eq!(fm_index.starts_with(&[]).unwrap(), [1, 2, 3, 0]);
+        assert_eq!(fm_index.starts_with(b"aa").unwrap(), [2, 3, 0]);
+        assert_eq!(fm_index.ends_with(&[]).unwrap(), [3, 0, 1, 2]);
+        assert_eq!(fm_index.ends_with(b"aa").unwrap(), [3, 0, 2]);
+    }
+
+    #[test]
+    fn test_multi_fm_index_u8() {
+        let data = [b"banana".to_vec(), b"bandana".to_vec(), b"anaba".to_vec()];
+        let fm_index = MultiFMIndex::new(&data).unwrap();
+
+        assert_eq!(fm_index.len().unwrap(), 3);
+        assert_eq!(fm_index.values().unwrap(), data);
+        assert_eq!(fm_index.count_all(b"ana").unwrap(), 4);
+        assert_eq!(
+            fm_index.count(b"ana").unwrap(),
+            collections::HashMap::from([(0, 2), (1, 1), (2, 1)])
+        );
+        assert_eq!(
+            fm_index.locate(b"ana").unwrap(),
+            collections::HashMap::from([(0, vec![3, 1]), (1, vec![4]), (2, vec![0])])
+        );
+        assert_eq!(fm_index.starts_with(b"ba").unwrap(), [0, 1]);
+        assert_eq!(fm_index.ends_with(b"na").unwrap(), [1, 0]);
+    }
+}
