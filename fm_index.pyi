@@ -1,4 +1,4 @@
-from types import Iterable
+from typing import Iterable
 
 class FMIndex:
     def __init__(self, data: str):
