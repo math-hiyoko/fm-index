@@ -49,18 +49,6 @@ jobs:
           args: --release --out dist --interpreter python3.9 python3.10 python3.11 python3.12 python3.13 python3.14
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
-      # This project uses PyO3's string conversion features.
-      # Which may depend on the decoding of a C bitfield.
-      # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
-      - name: Package test
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install fm-index \
-            --no-index \
-            --find-links dist \
-            --only-binary=:all:
-          python -m pip install "pytest>=7.0" "pytest-benchmark>=4.0"
-          pytest --benchmark-skip
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -93,18 +81,6 @@ jobs:
           args: --release --out dist --interpreter python3.9 python3.10 python3.11 python3.12 python3.13 python3.14 python3.13t python3.14t
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
-      # This project uses PyO3's string conversion features.
-      # Which may depend on the decoding of a C bitfield.
-      # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
-      - name: Package test
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install fm-index \
-            --no-index \
-            --find-links dist \
-            --only-binary=:all:
-          python -m pip install "pytest>=7.0" "pytest-benchmark>=4.0"
-          pytest --benchmark-skip
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -133,18 +109,6 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      # This project uses PyO3's string conversion features.
-      # Which may depend on the decoding of a C bitfield.
-      # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
-      - name: Package test
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install fm-index \
-            --no-index \
-            --find-links dist \
-            --only-binary=:all:
-          python -m pip install "pytest>=7.0" "pytest-benchmark>=4.0"
-          pytest --benchmark-skip
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -172,18 +136,6 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      # This project uses PyO3's string conversion features.
-      # Which may depend on the decoding of a C bitfield.
-      # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
-      - name: Package test
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install fm-index \
-            --no-index \
-            --find-links dist \
-            --only-binary=:all:
-          python -m pip install "pytest>=7.0" "pytest-benchmark>=4.0"
-          pytest --benchmark-skip
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -203,18 +155,6 @@ jobs:
         with:
           command: sdist
           args: --out dist
-      # This project uses PyO3's string conversion features.
-      # Which may depend on the decoding of a C bitfield.
-      # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
-      - name: Package test
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install fm-index \
-            --no-index \
-            --find-links dist \
-            --only-binary=:all:
-          python -m pip install "pytest>=7.0" "pytest-benchmark>=4.0"
-          pytest --benchmark-skip
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
@@ -256,8 +196,6 @@ jobs:
           python-version: 3.x
       - name: Install packages
         run: python -m pip install -e .[dev]
-      - name: Run tests
-        run: pytest --benchmark-skip
       - name: Docs check
         run: |
           pdoc fm_index \
@@ -297,11 +235,44 @@ jobs:
       - name: Run benchmarks
         run: pytest --benchmark-only
 
+  wheels-test:
+    runs-on: ubuntu-22.04
+    needs: linux
+    strategy:
+      matrix:
+        arch:
+          - { target: x86_64, uraimo: x86_64 }
+          - { target: x86,    uraimo: i386   }
+          - { target: aarch64, uraimo: aarch64 }
+          - { target: armv7,  uraimo: armv7  }
+          - { target: s390x,  uraimo: s390x  }
+          - { target: ppc64le, uraimo: ppc64le }
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ matrix.arch.target }}
+          path: dist
+      - uses: docker/setup-qemu-action@v3
+      - name: Run tests
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: ${{ matrix.arch.uraimo }}
+          distro: alpine_latest
+          dockerRunArgs: |
+            -v ${{ github.workspace }}/dist:/dist
+          install: |
+            apk add --no-cache python3 py3-pip
+            python3 -m pip install -U pip
+            python3 -m pip install --no-index --find-links /dist --only-binary=:all: fm-index
+            python3 -m pip install pytest pytest-benchmark numpy
+          run: |
+            pytest --benchmark-skip
+
   release:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, musllinux, windows, macos, sdist, cargo-test, python-test, python-benchmark]
+    needs: [linux, musllinux, windows, macos, sdist, cargo-test, python-test, python-benchmark, wheels-test]
     permissions:
       # Use to sign the release artifacts
       id-token: write
