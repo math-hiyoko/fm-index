@@ -194,7 +194,7 @@ jobs:
         with:
           python-version: 3.x
       - name: Install packages
-        run: python -m pip install -e .[dev]
+        run: python -m pip install -e .[test, dev]
       - name: Run tests
         run: pytest --benchmark-skip
       - name: Docs check
@@ -246,10 +246,10 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          - { target: aarch64, uraimo: aarch64 }
-          - { target: armv7,   uraimo: armv7   }
-          - { target: s390x,   uraimo: s390x   }
-          - { target: ppc64le, uraimo: ppc64le }
+          - target: aarch64
+          - target: armv7
+          - target: s390x
+          - target: ppc64le
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v7
@@ -260,7 +260,7 @@ jobs:
       - name: Run tests
         uses: uraimo/run-on-arch-action@v3
         with:
-          arch: ${{ matrix.arch.uraimo }}
+          arch: ${{ matrix.arch.target }}
           distro: ubuntu24.04
           dockerRunArgs: |
             -v ${{ github.workspace }}/dist:/dist
