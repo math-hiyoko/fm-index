@@ -236,7 +236,7 @@ jobs:
         run: pytest --benchmark-only
 
   wheels-test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     needs: linux
     strategy:
       fail-fast: false
