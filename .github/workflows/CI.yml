@@ -239,9 +239,9 @@ jobs:
     runs-on: ubuntu-22.04
     needs: linux
     strategy:
+      fail-fast: false
       matrix:
         arch:
-          - { target: x86_64, uraimo: x86_64 }
           - { target: x86,    uraimo: i386   }
           - { target: aarch64, uraimo: aarch64 }
           - { target: armv7,  uraimo: armv7  }
