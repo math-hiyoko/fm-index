@@ -256,7 +256,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ matrix.arch.uraimo }}
-          distro: alpine_latest
+          distro: ubuntu_latest
           dockerRunArgs: |
             -v ${{ github.workspace }}/dist:/dist
             -v ${{ github.workspace }}:/src
