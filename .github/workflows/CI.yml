@@ -247,6 +247,7 @@ jobs:
           - { target: s390x,  uraimo: s390x  }
           - { target: ppc64le, uraimo: ppc64le }
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: wheels-linux-${{ matrix.arch.target }}
