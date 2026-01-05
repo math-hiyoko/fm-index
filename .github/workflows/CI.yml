@@ -235,6 +235,9 @@ jobs:
       - name: Run benchmarks
         run: pytest --benchmark-only
 
+  # This project uses PyO3's string conversion features.
+  # Which may depend on the decoding of a C bitfield.
+  # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
   wheels-test:
     runs-on: ubuntu-22.04
     needs: linux
