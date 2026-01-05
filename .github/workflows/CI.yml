@@ -261,11 +261,14 @@ jobs:
           dockerRunArgs: |
             -v ${{ github.workspace }}/dist:/dist
           install: |
-            apk add --no-cache python3 py3-pip
+            apk add --no-cache python3 py3-pip py3-virtualenv
+            python3 -m venv .venv
+            .venv/bin/activate
             python3 -m pip install -U pip
             python3 -m pip install --no-index --find-links /dist --only-binary=:all: fm-index
             python3 -m pip install pytest pytest-benchmark numpy
           run: |
+            .venv/bin/activate
             pytest --benchmark-skip
 
   release:
