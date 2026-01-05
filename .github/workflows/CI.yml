@@ -242,9 +242,11 @@ jobs:
       fail-fast: false
       matrix:
         arch:
+          - { target: x86_64,  uraimo: x86_64  }
+          - { target: x86,     uraimo: i386    }
           - { target: aarch64, uraimo: aarch64 }
-          - { target: armv7,  uraimo: armv7  }
-          - { target: s390x,  uraimo: s390x  }
+          - { target: armv7,   uraimo: armv7   }
+          - { target: s390x,   uraimo: s390x   }
           - { target: ppc64le, uraimo: ppc64le }
     steps:
       - uses: actions/checkout@v4
