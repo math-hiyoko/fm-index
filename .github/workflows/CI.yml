@@ -265,7 +265,7 @@ jobs:
             apt-get update
             apt-get install -y --no-install-recommends python3 python3-venv python3-pip python3-numpy ca-certificates
           run: |
-            python3 -m venv /venv
+            python3 -m venv --system-site-packages /venv
             /venv/bin/python -m pip install -U pip
             /venv/bin/python -m pip install --no-index --find-links /dist --only-binary=:all: fm-index
             /venv/bin/python -m pip install pytest pytest-benchmark
