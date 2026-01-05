@@ -239,7 +239,7 @@ jobs:
   # Which may depend on the decoding of a C bitfield.
   # https://pyo3.rs/main/doc/src/pyo3/types/string.rs#289
   wheels-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: linux
     strategy:
       fail-fast: false
@@ -260,7 +260,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ matrix.arch.uraimo }}
-          distro: ubuntu24.04
+          distro: ubuntu22.04
           dockerRunArgs: |
             -v ${{ github.workspace }}/dist:/dist
             -v ${{ github.workspace }}:/src
