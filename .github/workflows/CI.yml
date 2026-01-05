@@ -268,7 +268,7 @@ jobs:
             python3 -m venv /venv
             /venv/bin/python -m pip install -U pip
             /venv/bin/python -m pip install --no-index --find-links /dist --only-binary=:all: fm-index
-            /venv/bin/python -m pip install pytest pytest-benchmark
+            /venv/bin/python -m pip install pytest pytest-benchmark numpy
             cd /src
             /venv/bin/python -m pytest --benchmark-skip
 
