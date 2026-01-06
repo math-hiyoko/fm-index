@@ -7,6 +7,8 @@ use pyo3::{
     exceptions::{PyIndexError, PyValueError},
 };
 
+use crate::utils::bit_select::BitSelect;
+
 type BlockType = u64;
 const SELECT_INDEX_INTERBVAL: usize = 64;
 
@@ -123,7 +125,7 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn select(&self, bit: bool, kth: usize) -> PyResult<Option<usize>> {
+    pub(crate) fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
@@ -131,12 +133,20 @@ impl BitVector {
             return Ok(None);
         }
 
-        let index = {
-            let mut left = self.select_index[bit as usize][kth / SELECT_INDEX_INTERBVAL];
-            let mut right = self.select_index[bit as usize][kth / SELECT_INDEX_INTERBVAL + 1];
+        let block_index = {
+            let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL]
+                / (BlockType::BITS as usize);
+            let mut right = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL + 1]
+                / (BlockType::BITS as usize)
+                + 1;
+            debug_assert!(right <= self.blocks.len());
             while left + 1 < right {
                 let mid = (left + right) / 2;
-                let rank_at_mid = self.rank(bit, mid)?;
+                let rank_at_mid = if bit {
+                    self.ranks[mid]
+                } else {
+                    mid * (BlockType::BITS as usize) - self.ranks[mid]
+                };
                 if rank_at_mid < kth {
                     left = mid;
                 } else {
@@ -145,6 +155,14 @@ impl BitVector {
             }
             left
         };
+
+        kth -= if bit {
+            self.ranks[block_index]
+        } else {
+            block_index * (BlockType::BITS as usize) - self.ranks[block_index]
+        };
+        let index = self.blocks[block_index].bit_select(bit, kth).unwrap()
+            + block_index * (BlockType::BITS as usize);
 
         Ok(Some(index))
     }
