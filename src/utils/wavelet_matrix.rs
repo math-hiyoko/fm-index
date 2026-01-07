@@ -39,22 +39,29 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
             .bit_width();
         let mut layers: Vec<BitVector> = Vec::with_capacity(height);
         let mut zeros: Vec<usize> = Vec::with_capacity(height);
+
         for i in 0..height {
-            let mut bits: Vec<bool> = Vec::with_capacity(len);
-            let mut zero_values = Vec::new();
-            let mut one_values = Vec::new();
-            for &value in values_some.iter() {
-                let bit = (value >> (height - i - 1) & NumberType::one()).is_one();
-                bits.push(bit);
+            let bits = values_some
+                .iter()
+                .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
+                .collect::<Vec<_>>();
+            let num_zeros = bits.iter().filter(|&&bit| !bit).count();
+            layers.push(BitVector::new(&bits)?);
+            zeros.push(num_zeros);
+
+            let mut next_values = vec![NumberType::zero(); values_some.len()];
+            let mut zero_index = 0usize;
+            let mut one_index = num_zeros;
+            for (bit, value) in iter::zip(bits, values_some) {
                 if bit {
-                    one_values.push(value);
+                    next_values[one_index] = value;
+                    one_index += 1;
                 } else {
-                    zero_values.push(value);
+                    next_values[zero_index] = value;
+                    zero_index += 1;
                 }
             }
-            layers.push(BitVector::new(&bits)?);
-            zeros.push(zero_values.len());
-            values_some = [zero_values, one_values].concat();
+            values_some = next_values;
         }
 
         let mut begin_index = collections::HashMap::new();
