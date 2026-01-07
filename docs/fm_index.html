@@ -83,7 +83,7 @@
     </ul>
 
 
-            <footer>© 2025 Koki Watanabe</footer>
+            <footer>© 2026 Koki Watanabe</footer>
 
         <a class="attribution" title="pdoc: Python API documentation generator" href="https://pdoc.dev" target="_blank">
             built with <span class="visually-hidden">pdoc</span><img
@@ -157,12 +157,13 @@ while using significantly less memory than traditional indexes.</p>
     </div>
     <a class="headerlink" href="#FMIndex.item"></a>
     
-            <div class="docstring"><p>Convert the FM-Index back to a string.</p>
+            <div class="docstring"><p>Convert the FMIndex back to a string.</p>
 
 <h4 id="complexity">Complexity</h4>
 
 <ul>
 <li>Time: <code>O(N log σ)</code></li>
+<li>Space: <code>O(N)</code></li>
 </ul>
 
 <p>where:</p>
@@ -201,6 +202,7 @@ while using significantly less memory than traditional indexes.</p>
 
 <ul>
 <li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
 <p>where:</p>
@@ -215,6 +217,7 @@ while using significantly less memory than traditional indexes.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="c1"># &quot;issi&quot; in fm</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
 <span class="kc">True</span>
 </code></pre>
@@ -239,6 +242,7 @@ while using significantly less memory than traditional indexes.</p>
 
 <ul>
 <li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
 <p>where:</p>
@@ -271,13 +275,14 @@ while using significantly less memory than traditional indexes.</p>
     </div>
     <a class="headerlink" href="#FMIndex.locate"></a>
     
-            <div class="docstring"><p>Locate all occurrences of the given pattern in the indexed string.
+            <div class="docstring"><p>Locate all occurrences of the given pattern in the indexed string.<br />
 Order of the returned positions is not guaranteed.</p>
 
 <h4 id="complexity">Complexity</h4>
 
 <ul>
 <li>Time: <code>O((|pattern| + |count|) log σ)</code></li>
+<li>Space: <code>O(|pattern| + |count|)</code></li>
 </ul>
 
 <p>where:</p>
@@ -317,6 +322,7 @@ Order of the returned positions is not guaranteed.</p>
 
 <ul>
 <li>Time: <code>O(|prefix| log σ)</code></li>
+<li>Space: <code>O(|prefix|)</code></li>
 </ul>
 
 <p>where:</p>
@@ -331,7 +337,7 @@ Order of the returned positions is not guaranteed.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">starts_with</span><span class="p">(</span><span class="s2">&quot;mi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;mi&quot;</span><span class="p">)</span>
 <span class="kc">True</span>
 </code></pre>
 </div>
@@ -355,6 +361,7 @@ Order of the returned positions is not guaranteed.</p>
 
 <ul>
 <li>Time: <code>O(|suffix| log σ)</code></li>
+<li>Space: <code>O(|suffix|)</code></li>
 </ul>
 
 <p>where:</p>
@@ -369,7 +376,7 @@ Order of the returned positions is not guaranteed.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">ends_with</span><span class="p">(</span><span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;pi&quot;</span><span class="p">)</span>
 <span class="kc">True</span>
 </code></pre>
 </div>
@@ -439,6 +446,7 @@ attributed back to the original text, making it suitable for multi-document sear
 
 <ul>
 <li>Time: <code>O(S log σ)</code></li>
+<li>Space: <code>O(S)</code></li>
 </ul>
 
 <p>where:</p>
@@ -454,7 +462,7 @@ attributed back to the original text, making it suitable for multi-document sear
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
 <span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-<span class="s1">&#39;mississippi&#39;</span>
+<span class="p">[</span><span class="s1">&#39;abcabcabcabc&#39;</span><span class="p">,</span> <span class="s1">&#39;xxabcabcxxabc&#39;</span><span class="p">,</span> <span class="s1">&#39;abcababcabc&#39;</span><span class="p">]</span>
 </code></pre>
 </div>
 </div>
@@ -471,7 +479,34 @@ attributed back to the original text, making it suitable for multi-document sear
     </div>
     <a class="headerlink" href="#MultiFMIndex.contains"></a>
     
-            <div class="docstring"><p>The type of the None singleton.</p>
+            <div class="docstring"><p>Check if the given pattern exists in any of the indexed strings.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Space: <code>O(|pattern|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|pattern|</code> = length of the pattern</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="c1"># &quot;abc&quot; in mfm</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="kc">False</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">)</span>
+<span class="kc">True</span>
+</code></pre>
+</div>
 </div>
 
 
@@ -487,6 +522,30 @@ attributed back to the original text, making it suitable for multi-document sear
     <a class="headerlink" href="#MultiFMIndex.count_all"></a>
     
             <div class="docstring"><p>Count the total occurrences of the given pattern across all indexed strings.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Space: <code>O(|pattern|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|pattern|</code> = length of the pattern</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">count_all</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="mi">10</span>
+</code></pre>
+</div>
 </div>
 
 
@@ -502,6 +561,32 @@ attributed back to the original text, making it suitable for multi-document sear
     <a class="headerlink" href="#MultiFMIndex.count"></a>
     
             <div class="docstring"><p>Count the occurrences of the given pattern in each indexed string.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O((|pattern| + |total_count|) log σ)</code></li>
+<li>Space: <code>O(|pattern| + |output|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|pattern|</code> = length of the pattern</li>
+<li><code>|total_count|</code> = total number of occurrences across all strings</li>
+<li><code>|output|</code> = number of indexed strings containing the pattern</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>
+</code></pre>
+</div>
 </div>
 
 
@@ -516,7 +601,33 @@ attributed back to the original text, making it suitable for multi-document sear
     </div>
     <a class="headerlink" href="#MultiFMIndex.locate"></a>
     
-            <div class="docstring"><p>Locate all occurrences of the given pattern in each indexed string.</p>
+            <div class="docstring"><p>Locate all occurrences of the given pattern in each indexed string.<br />
+Order of occurrences in each string is not guaranteed.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O((|pattern| + |total_count|) log σ)</code></li>
+<li>Space: <code>O(|pattern| + |total_count|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|pattern|</code> = length of the pattern</li>
+<li><code>|total_count|</code> = total number of occurrences across all strings</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">]}</span>
+</code></pre>
+</div>
 </div>
 
 
@@ -531,7 +642,32 @@ attributed back to the original text, making it suitable for multi-document sear
     </div>
     <a class="headerlink" href="#MultiFMIndex.startswith"></a>
     
-            <div class="docstring"><p>List the indices of strings that start with the given prefix.</p>
+            <div class="docstring"><p>List the indices of strings that start with the given prefix.<br />
+Order of indices is not guaranteed.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|prefix| log σ)</code></li>
+<li>Space: <code>O(|prefix|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|prefix|</code> = length of the prefix</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+</code></pre>
+</div>
 </div>
 
 
@@ -546,7 +682,32 @@ attributed back to the original text, making it suitable for multi-document sear
     </div>
     <a class="headerlink" href="#MultiFMIndex.endswith"></a>
     
-            <div class="docstring"><p>List the indices of strings that end with the given suffix.</p>
+            <div class="docstring"><p>List the indices of strings that end with the given suffix.<br />
+Order of indices is not guaranteed.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|suffix| log σ)</code></li>
+<li>Space: <code>O(|suffix|)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|suffix|</code> = length of the suffix</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+</code></pre>
+</div>
 </div>
 
 
