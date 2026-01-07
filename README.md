@@ -177,7 +177,7 @@ $ pdoc fm_index \
       --no-search \
       --no-show-source \
       --docformat markdown \
-      --footer-text "© 2025 Koki Watanabe"
+      --footer-text "© 2026 Koki Watanabe"
 ```
 
 ## References
