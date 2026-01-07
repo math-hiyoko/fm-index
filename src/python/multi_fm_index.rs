@@ -234,16 +234,16 @@ impl PyMultiFMIndex {
     }
 
     /// Check if the given pattern exists in any of the indexed strings.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
-    /// 
+    ///
     /// where:
     /// - `|pattern|` = length of the pattern
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// >>> from fm_index import MultiFMIndex
@@ -283,16 +283,16 @@ impl PyMultiFMIndex {
     }
 
     /// Count the total occurrences of the given pattern across all indexed strings.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
-    /// 
+    ///
     /// where:
     /// - `|pattern|` = length of the pattern
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// from fm_index import MultiFMIndex
@@ -330,18 +330,18 @@ impl PyMultiFMIndex {
     }
 
     /// Count the occurrences of the given pattern in each indexed string.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O((|pattern| + |total_count|) log σ)`
     /// - Space: `O(|pattern| + |output|)`
-    /// 
+    ///
     /// where:
     /// - `|pattern|` = length of the pattern
     /// - `|total_count|` = total number of occurrences across all strings
     /// - `|output|` = number of indexed strings containing the pattern
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// >>> from fm_index import MultiFMIndex
@@ -380,17 +380,17 @@ impl PyMultiFMIndex {
     }
 
     /// Locate all occurrences of the given pattern in each indexed string.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O((|pattern| + |total_count|) log σ)`
     /// - Space: `O(|pattern| + |total_count|)`
-    /// 
+    ///
     /// where:
     /// - `|pattern|` = length of the pattern
     /// - `|total_count|` = total number of occurrences across all strings
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// >>> from fm_index import MultiFMIndex
@@ -429,16 +429,16 @@ impl PyMultiFMIndex {
     }
 
     /// List the indices of strings that start with the given prefix.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O(|prefix| log σ)`
     /// - Space: `O(|prefix|)`
-    /// 
+    ///
     /// where:
     /// - `|prefix|` = length of the prefix
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// >> from fm_index import MultiFMIndex
@@ -477,16 +477,16 @@ impl PyMultiFMIndex {
     }
 
     /// List the indices of strings that end with the given suffix.
-    /// 
+    ///
     /// #### Complexity
-    /// 
+    ///
     /// - Time: `O(|suffix| log σ)`
     /// - Space: `O(|suffix|)`
-    /// 
+    ///
     /// where:
     /// - `|suffix|` = length of the suffix
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    /// 
+    ///
     /// #### Examples
     /// ```python
     /// >> from fm_index import MultiFMIndex
