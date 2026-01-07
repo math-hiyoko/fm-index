@@ -39,7 +39,7 @@ pub(crate) struct PyMultiFMIndex {
 
 #[pymethods]
 impl PyMultiFMIndex {
-    /// Create a MultiFM-Index from the given list of strings.
+    /// Create a MultiFMIndex from the given list of strings.
     #[new]
     fn new(py: Python<'_>, data: &Bound<'_, PySequence>) -> PyResult<Self> {
         #[derive(PartialEq, PartialOrd, Eq, Ord)]
@@ -194,7 +194,7 @@ impl PyMultiFMIndex {
     /// >>> from fm_index import MultiFMIndex
     /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >>> mfm.item()
-    /// ["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"]
+    /// ['abcabcabcabc', 'xxabcabcxxabc', 'abcababcabc']
     /// ```
     fn item(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
         let str_list = py.detach(move || match &self.inner {
@@ -248,6 +248,7 @@ impl PyMultiFMIndex {
     /// ```python
     /// >>> from fm_index import MultiFMIndex
     /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
+    /// >>> # "abc" in mfm
     /// >>> mfm.contains("abc")
     /// False
     /// >>> mfm.contains("abcabcabcabc")
@@ -295,10 +296,10 @@ impl PyMultiFMIndex {
     ///
     /// #### Examples
     /// ```python
-    /// from fm_index import MultiFMIndex
-    /// mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
+    /// >>> from fm_index import MultiFMIndex
+    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >>> mfm.count_all("abc")
-    /// 6
+    /// 10
     /// ```
     fn count_all(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
         let pattern = unsafe { pattern.data()? };
@@ -347,7 +348,7 @@ impl PyMultiFMIndex {
     /// >>> from fm_index import MultiFMIndex
     /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >>> mfm.count("abc")
-    /// {0: 3, 1: 2, 2: 1}
+    /// {1: 3, 2: 3, 0: 4}
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
         let pattern = unsafe { pattern.data()? };
@@ -379,7 +380,8 @@ impl PyMultiFMIndex {
         Ok(count.into_py_dict(py)?.unbind())
     }
 
-    /// Locate all occurrences of the given pattern in each indexed string.
+    /// Locate all occurrences of the given pattern in each indexed string.  
+    /// Order of occurrences in each string is not guaranteed.
     ///
     /// #### Complexity
     ///
@@ -396,7 +398,7 @@ impl PyMultiFMIndex {
     /// >>> from fm_index import MultiFMIndex
     /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >>> mfm.locate("abc")
-    /// {0: [0, 3, 6], 1: [2, 5], 2: [0]}
+    /// {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
         let pattern = unsafe { pattern.data()? };
@@ -428,7 +430,8 @@ impl PyMultiFMIndex {
         Ok(locate.into_py_dict(py)?.unbind())
     }
 
-    /// List the indices of strings that start with the given prefix.
+    /// List the indices of strings that start with the given prefix.  
+    /// Order of indices is not guaranteed.
     ///
     /// #### Complexity
     ///
@@ -444,7 +447,7 @@ impl PyMultiFMIndex {
     /// >> from fm_index import MultiFMIndex
     /// >> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >> mfm.startswith("abc")
-    /// [0, 2]
+    /// [2, 0]
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let prefix = unsafe { prefix.data()? };
@@ -476,7 +479,8 @@ impl PyMultiFMIndex {
         Ok(PyList::new(py, result)?.unbind())
     }
 
-    /// List the indices of strings that end with the given suffix.
+    /// List the indices of strings that end with the given suffix.  
+    /// Order of indices is not guaranteed.
     ///
     /// #### Complexity
     ///
@@ -492,7 +496,7 @@ impl PyMultiFMIndex {
     /// >> from fm_index import MultiFMIndex
     /// >> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
     /// >> mfm.endswith("abc")
-    /// [0, 1, 2]
+    /// [2, 1, 0]
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let suffix = unsafe { suffix.data()? };

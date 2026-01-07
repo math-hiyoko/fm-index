@@ -99,7 +99,7 @@ impl PyFMIndex {
         self.__copy__(py)
     }
 
-    /// Convert the FM-Index back to a string.
+    /// Convert the FMIndex back to a string.
     ///
     /// #### Complexity
     ///
@@ -158,6 +158,7 @@ impl PyFMIndex {
     /// ```python
     /// >>> from fm_index import FMIndex
     /// >>> fm = FMIndex("mississippi")
+    /// >>> # "issi" in fm
     /// >>> fm.contains("issi")
     /// True
     /// ```
@@ -237,7 +238,7 @@ impl PyFMIndex {
         })
     }
 
-    /// Locate all occurrences of the given pattern in the indexed string.
+    /// Locate all occurrences of the given pattern in the indexed string.  
     /// Order of the returned positions is not guaranteed.
     ///
     /// #### Complexity
@@ -302,7 +303,7 @@ impl PyFMIndex {
     /// ```python
     /// >>> from fm_index import FMIndex
     /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.starts_with("mi")
+    /// >>> fm.startswith("mi")
     /// True
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<bool> {
@@ -349,7 +350,7 @@ impl PyFMIndex {
     /// ```python
     /// >>> from fm_index import FMIndex
     /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.ends_with("pi")
+    /// >>> fm.endswith("pi")
     /// True
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<bool> {
