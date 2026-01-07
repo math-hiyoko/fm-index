@@ -39,22 +39,29 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
             .bit_width();
         let mut layers: Vec<BitVector> = Vec::with_capacity(height);
         let mut zeros: Vec<usize> = Vec::with_capacity(height);
+
         for i in 0..height {
-            let mut bits: Vec<bool> = Vec::with_capacity(len);
-            let mut zero_values = Vec::new();
-            let mut one_values = Vec::new();
-            for &value in values_some.iter() {
-                let bit = (value >> (height - i - 1) & NumberType::one()).is_one();
-                bits.push(bit);
+            let bits = values_some
+                .iter()
+                .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
+                .collect::<Vec<_>>();
+            let num_zeros = bits.iter().filter(|&&bit| !bit).count();
+            layers.push(BitVector::new(&bits)?);
+            zeros.push(num_zeros);
+
+            let mut next_values = vec![NumberType::zero(); values_some.len()];
+            let mut zero_index = 0usize;
+            let mut one_index = num_zeros;
+            for (bit, value) in iter::zip(bits, values_some) {
                 if bit {
-                    one_values.push(value);
+                    next_values[one_index] = value;
+                    one_index += 1;
                 } else {
-                    zero_values.push(value);
+                    next_values[zero_index] = value;
+                    zero_index += 1;
                 }
             }
-            layers.push(BitVector::new(&bits)?);
-            zeros.push(zero_values.len());
-            values_some = [zero_values, one_values].concat();
+            values_some = next_values;
         }
 
         let mut begin_index = collections::HashMap::new();
@@ -128,8 +135,8 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
         let is_none = self.is_none.values()?;
         let mut values = Vec::with_capacity(self.len);
         let mut iter_some = values_some.iter();
-        for &bit in is_none.iter() {
-            if bit {
+        for &is_none in is_none.iter() {
+            if is_none {
                 values.push(None);
             } else {
                 values.push(iter_some.next().copied());
@@ -150,18 +157,18 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
         }
         end -= self.is_none.rank(true, end)?;
 
-        let value = value.as_ref().unwrap();
+        let &value = value.as_ref().unwrap();
         if value.bit_width() > self.height {
             return Ok(0usize);
         }
 
-        let begin_index = match self.begin_index.get(value) {
+        let begin_index = match self.begin_index.get(&value) {
             Some(&index) => index,
             None => return Ok(0usize),
         };
 
         for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate() {
-            let bit = (*value >> (self.height - depth - 1) & NumberType::one()).is_one();
+            let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
                 end = zero + layer.rank(bit, end)?;
             } else {
@@ -183,19 +190,19 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
             return self.is_none.select(true, kth);
         }
 
-        let value = value.as_ref().unwrap();
+        let &value = value.as_ref().unwrap();
         if value.bit_width() > self.height {
             return Ok(None);
         }
 
-        let begin_index = match self.begin_index.get(value) {
-            Some(index) => *index,
+        let begin_index = match self.begin_index.get(&value) {
+            Some(&index) => index,
             None => return Ok(None),
         };
 
         let mut index = begin_index + kth - 1;
         for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate().rev() {
-            let bit = (*value >> (self.height - depth - 1) & NumberType::one()).is_one();
+            let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
                 index -= zero;
             }

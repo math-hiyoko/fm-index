@@ -2,7 +2,7 @@ use std::{char, collections};
 
 use pyo3::{
     PyResult,
-    exceptions::PyRuntimeError,
+    exceptions::{PyTypeError, PyUnicodeDecodeError},
     prelude::*,
     types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringData, PyStringMethods},
 };
@@ -23,11 +23,14 @@ enum MultiFMIndexEnum {
 /// Internally, the texts are concatenated with separators so that matches can be
 /// attributed back to the original text, making it suitable for multi-document search.
 ///
-/// This implementation accepts Unicode strings and encodes each input text as a
-/// sequence of integer symbols. Depending on the input texts’ representation
-/// (e.g., UCS-1 / UCS-2 / UCS-4), it automatically selects an appropriate integer
-/// bit-width for symbols, using the smallest representation that can faithfully
-/// store all code points appearing in the collection.
+/// #### Construction Complexity
+///
+/// - Time: `O(S log σ)`
+/// - Space: `O(S log σ)`
+///
+/// where:
+/// - `S` = total length of all indexed strings
+/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
 #[derive(Clone)]
 #[pyclass(name = "MultiFMIndex")]
 pub(crate) struct PyMultiFMIndex {
@@ -51,7 +54,7 @@ impl PyMultiFMIndex {
             .map(|item| {
                 let item = item?;
                 let item = item.cast::<PyString>().map_err(|_| {
-                    PyRuntimeError::new_err("All elements in the sequence must be strings.")
+                    PyTypeError::new_err("All elements in the sequence must be strings.")
                 })?;
                 match unsafe { item.data()? } {
                     PyStringData::Ucs1(data) => Ok(StringData::Ucs1(data.to_vec())),
@@ -122,67 +125,27 @@ impl PyMultiFMIndex {
         })
     }
 
-    fn __str__(&self, py: Python<'_>) -> PyResult<String> {
-        py.detach(move || match &self.inner {
-            MultiFMIndexEnum::U8(multi_fm_index) => {
-                let str_list = multi_fm_index
-                    .values()?
-                    .iter()
-                    .map(|value| {
-                        String::from_utf8(value.to_vec())
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
-                    })
-                    .collect::<PyResult<Vec<_>>>()?;
-                Ok(format!("MultiFMIndex({:?})", str_list))
-            }
-            MultiFMIndexEnum::U16(multi_fm_index) => {
-                let str_list = multi_fm_index
-                    .values()?
-                    .iter()
-                    .map(|value| {
-                        String::from_utf16(value)
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
-                    })
-                    .collect::<PyResult<Vec<_>>>()?;
-                Ok(format!("MultiFMIndex({:?})", str_list))
-            }
-            MultiFMIndexEnum::U32(multi_fm_index) => {
-                let str_list = multi_fm_index
-                    .values()?
-                    .iter()
-                    .map(|value| {
-                        Ok(value
-                            .iter()
-                            .map(|&c| char::from_u32(c).unwrap_or('\u{FFFD}'))
-                            .collect::<String>())
-                    })
-                    .collect::<PyResult<Vec<_>>>()?;
-                Ok(format!("MultiFMIndex({:?})", str_list))
-            }
-        })
+    fn __contains__(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
+        self.contains(py, pattern)
     }
 
-    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        py.detach(move || match &self.inner {
+    fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
+        let result = py.detach(move || match &self.inner {
             MultiFMIndexEnum::U8(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
                     .iter()
                     .map(|value| {
-                        String::from_utf8(value.to_vec())
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+                        String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                Ok(format!("MultiFMIndex({:?})", str_list))
+                PyResult::Ok(format!("MultiFMIndex({:?})", str_list))
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
                     .iter()
-                    .map(|value| {
-                        String::from_utf16(value)
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
-                    })
+                    .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(format!("MultiFMIndex({:?})", str_list))
             }
@@ -199,7 +162,12 @@ impl PyMultiFMIndex {
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(format!("MultiFMIndex({:?})", str_list))
             }
-        })
+        })?;
+        Ok(PyString::new(py, &result).into())
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
+        self.__str__(py)
     }
 
     fn __copy__(&self, py: Python<'_>) -> PyResult<Self> {
@@ -207,20 +175,25 @@ impl PyMultiFMIndex {
     }
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
-        py.detach(move || Ok(self.clone()))
+        self.__copy__(py)
     }
 
     /// Convert the MultiFM-Index back to a list of strings.
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(N log σ)`
+    /// - Time: `O(S log σ)`
     ///
     /// where:
-    /// - `N` = total length of all indexed strings
+    /// - `S` = total length of all indexed strings
     /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
     ///
-    ///
+    /// #### Examples
+    /// ```python
+    /// >>> from fm_index import MultiFMIndex
+    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
+    /// >>> mfm.item()
+    /// 'mississippi'
     /// ```
     fn item(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
         let str_list = py.detach(move || match &self.inner {
@@ -229,8 +202,7 @@ impl PyMultiFMIndex {
                     .values()?
                     .iter()
                     .map(|value| {
-                        String::from_utf8(value.to_vec())
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+                        String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
                     .collect::<PyResult<Vec<_>>>()?;
                 PyResult::Ok(str_list)
@@ -239,10 +211,7 @@ impl PyMultiFMIndex {
                 let str_list = multi_fm_index
                     .values()?
                     .iter()
-                    .map(|value| {
-                        String::from_utf16(value)
-                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
-                    })
+                    .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(str_list)
             }
@@ -261,6 +230,35 @@ impl PyMultiFMIndex {
             }
         })?;
         Ok(PyList::new(py, str_list)?.unbind())
+    }
+
+    fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
+        let pattern = unsafe { pattern.data()? };
+        py.detach(move || match &self.inner {
+            MultiFMIndexEnum::U8(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => data,
+                    _ => return Ok(false),
+                };
+                multi_fm_index.contains(pattern)
+            }
+            MultiFMIndexEnum::U16(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => data,
+                    _ => return Ok(false),
+                };
+                multi_fm_index.contains(pattern)
+            }
+            MultiFMIndexEnum::U32(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs4(data) => data,
+                };
+                multi_fm_index.contains(pattern)
+            }
+        })
     }
 
     /// Count the total occurrences of the given pattern across all indexed strings.
@@ -434,8 +432,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 0);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -445,6 +448,11 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, ""))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index
@@ -535,8 +543,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -546,6 +559,11 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, ""))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index
@@ -636,8 +654,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -647,6 +670,16 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "abc"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "abcabcabcabc"))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index
@@ -745,8 +778,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -756,6 +794,16 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいうあいうあいう"))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index
@@ -854,8 +902,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -865,6 +918,16 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃😀😃😀😃"))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index
@@ -963,8 +1026,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__str__(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -974,6 +1042,16 @@ mod tests {
                     .extract::<Vec<String>>(py)
                     .unwrap(),
                 values
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦"))
+                    .unwrap()
             );
             assert_eq!(
                 multi_fm_index

@@ -89,6 +89,34 @@ def test_item(
     ]
 
 
+def test_contains(
+    multi_fm_index_empty,
+    multi_fm_index_empties,
+    multi_fm_index_ucs1,
+    multi_fm_index_ucs2,
+    multi_fm_index_ucs4,
+):
+    assert "" not in multi_fm_index_empty
+    assert not multi_fm_index_empty.contains("")
+    assert "" in multi_fm_index_empties
+    assert multi_fm_index_empties.contains("")
+    assert "abcabcabcabc" in multi_fm_index_ucs1
+    assert multi_fm_index_ucs1.contains("abcabcabcabc")
+    assert "あいうあいうあいう" in multi_fm_index_ucs2
+    assert multi_fm_index_ucs2.contains("あいうあいうあいう")
+    assert "😀😃😀😃😀😃" in multi_fm_index_ucs4
+    assert multi_fm_index_ucs4.contains("😀😃😀😃😀😃")
+
+    assert "xyz" not in multi_fm_index_empty
+    assert not multi_fm_index_empty.contains("xyz")
+    assert "mnop" not in multi_fm_index_ucs1
+    assert not multi_fm_index_ucs1.contains("mnop")
+    assert "あいう" not in multi_fm_index_ucs2
+    assert not multi_fm_index_ucs2.contains("あいう")
+    assert "😀😃" not in multi_fm_index_ucs4
+    assert not multi_fm_index_ucs4.contains("😀😃")
+
+
 def test_count_all(
     multi_fm_index_empty,
     multi_fm_index_empties,

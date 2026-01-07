@@ -33,6 +33,9 @@
                                 <a class="function" href="#FMIndex.item">item</a>
                         </li>
                         <li>
+                                <a class="function" href="#FMIndex.contains">contains</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#FMIndex.count">count</a>
                         </li>
                         <li>
@@ -55,6 +58,9 @@
                         </li>
                         <li>
                                 <a class="function" href="#MultiFMIndex.item">item</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#MultiFMIndex.contains">contains</a>
                         </li>
                         <li>
                                 <a class="function" href="#MultiFMIndex.count_all">count_all</a>
@@ -106,17 +112,26 @@ fm_index    </h1>
     </div>
     <a class="headerlink" href="#FMIndex"></a>
     
-            <div class="docstring"><p>An FM-index data structure for efficient substring search on text.</p>
+            <div class="docstring"><p>An FM-index for efficient full-text search and pattern queries.</p>
 
-<p>The FM-index is a compressed full-text index built on the
-Burrows–Wheeler Transform (BWT) and succinct rank/select structures.
-It supports fast pattern counting and locating while keeping memory usage low.</p>
+<p>The FM-index is a compressed text index based on the Burrows–Wheeler
+Transform. It enables fast substring search, allowing patterns to be
+counted and located in time independent of the original text length,
+while using significantly less memory than traditional indexes.</p>
 
-<p>This implementation accepts Unicode strings and internally encodes the input
-as a sequence of integer symbols. Depending on the input string’s representation
-(e.g., UCS-1 / UCS-2 / UCS-4), it automatically selects an appropriate integer
-bit-width for symbols, using the smallest representation that can faithfully
-store all code points in the text.</p>
+<h4 id="construction-complexity">Construction Complexity</h4>
+
+<ul>
+<li>Time: <code>O(N log σ)</code></li>
+<li>Space: <code>O(N log σ)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>N</code> = length of the indexed string</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
 </div>
 
 
@@ -161,9 +176,47 @@ store all code points in the text.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-<span class="s2">&quot;mississippi&quot;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="s1">&#39;mississippi&#39;</span>
+</code></pre>
+</div>
+</div>
+
+
+                            </div>
+                            <div id="FMIndex.contains" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">contains</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span>, </span><span class="param"><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="nb">bool</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#FMIndex.contains"></a>
+    
+            <div class="docstring"><p>Check if the indexed string contains the given pattern.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|pattern| log σ)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>|pattern|</code> = length of the pattern</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<span class="kc">True</span>
 </code></pre>
 </div>
 </div>
@@ -199,8 +252,8 @@ store all code points in the text.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
 <span class="mi">2</span>
 </code></pre>
 </div>
@@ -239,8 +292,8 @@ Order of the returned positions is not guaranteed.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
 <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
 </code></pre>
 </div>
@@ -277,8 +330,8 @@ Order of the returned positions is not guaranteed.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span><span class="o">.</span><span class="n">starts_with</span><span class="p">(</span><span class="s2">&quot;mi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">starts_with</span><span class="p">(</span><span class="s2">&quot;mi&quot;</span><span class="p">)</span>
 <span class="kc">True</span>
 </code></pre>
 </div>
@@ -315,8 +368,8 @@ Order of the returned positions is not guaranteed.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">fm_index</span><span class="o">.</span><span class="n">ends_with</span><span class="p">(</span><span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fm</span><span class="o">.</span><span class="n">ends_with</span><span class="p">(</span><span class="s2">&quot;pi&quot;</span><span class="p">)</span>
 <span class="kc">True</span>
 </code></pre>
 </div>
@@ -342,11 +395,19 @@ fast pattern counting and locating queries while keeping the index compact.
 Internally, the texts are concatenated with separators so that matches can be
 attributed back to the original text, making it suitable for multi-document search.</p>
 
-<p>This implementation accepts Unicode strings and encodes each input text as a
-sequence of integer symbols. Depending on the input texts’ representation
-(e.g., UCS-1 / UCS-2 / UCS-4), it automatically selects an appropriate integer
-bit-width for symbols, using the smallest representation that can faithfully
-store all code points appearing in the collection.</p>
+<h4 id="construction-complexity">Construction Complexity</h4>
+
+<ul>
+<li>Time: <code>O(S log σ)</code></li>
+<li>Space: <code>O(S log σ)</code></li>
+</ul>
+
+<p>where:</p>
+
+<ul>
+<li><code>S</code> = total length of all indexed strings</li>
+<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+</ul>
 </div>
 
 
@@ -377,17 +438,40 @@ store all code points appearing in the collection.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(N log σ)</code></li>
+<li>Time: <code>O(S log σ)</code></li>
 </ul>
 
 <p>where:</p>
 
 <ul>
-<li><code>N</code> = total length of all indexed strings</li>
+<li><code>S</code> = total length of all indexed strings</li>
 <li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
 </ul>
 
-<p>```</p>
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">mfm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="s1">&#39;mississippi&#39;</span>
+</code></pre>
+</div>
+</div>
+
+
+                            </div>
+                            <div id="MultiFMIndex.contains" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">contains</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span>, </span><span class="param"><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="nb">bool</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#MultiFMIndex.contains"></a>
+    
+            <div class="docstring"><p>The type of the None singleton.</p>
 </div>
 
 

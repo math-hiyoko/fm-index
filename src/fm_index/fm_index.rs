@@ -43,6 +43,10 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(values)
     }
 
+    pub(crate) fn contains(&self, pattern: &[Element]) -> PyResult<bool> {
+        Ok(self.count(pattern)? > 0)
+    }
+
     pub(crate) fn count(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
             .iter()
@@ -102,6 +106,8 @@ mod tests {
 
         assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(!fm_index.contains(b"a").unwrap());
         assert_eq!(fm_index.count(&[]).unwrap(), 1);
         assert!(fm_index.count(b"a").unwrap().is_zero());
         assert_eq!(fm_index.locate(&[]).unwrap(), [0]);
@@ -119,6 +125,8 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 10);
         assert_eq!(fm_index.values().unwrap(), data);
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(fm_index.contains(b"a").unwrap());
         assert_eq!(fm_index.count(b"a").unwrap(), 10);
         assert_eq!(
             fm_index.locate(b"a").unwrap(),
@@ -139,6 +147,8 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 11);
         assert_eq!(fm_index.values().unwrap(), data);
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(fm_index.contains(b"is").unwrap());
         assert_eq!(fm_index.count(b"is").unwrap(), 2);
         assert_eq!(fm_index.locate(b"is").unwrap(), [4, 1]);
         assert!(fm_index.starts_with(&[]).unwrap());
@@ -159,6 +169,8 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 13);
         assert_eq!(fm_index.values().unwrap(), data);
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(fm_index.contains(&['に' as u32, 'わ' as u32]).unwrap());
         assert_eq!(fm_index.count(&['に' as u32, 'わ' as u32]).unwrap(), 3);
         assert_eq!(
             fm_index.locate(&['に' as u32, 'わ' as u32]).unwrap(),
