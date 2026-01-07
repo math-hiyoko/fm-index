@@ -104,6 +104,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O(N log σ)`
+    /// - Space: `O(N)`
     ///
     /// where:
     /// - `N` = length of the indexed string
@@ -147,6 +148,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
+    /// - Space: `O(|pattern|)`
     ///
     /// where:
     /// - `|pattern|` = length of the pattern
@@ -193,6 +195,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
+    /// - Space: `O(|pattern|)`
     ///
     /// where:
     /// - `|pattern|` = length of the pattern
@@ -240,6 +243,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O((|pattern| + |count|) log σ)`
+    /// - Space: `O(|pattern| + |count|)`
     ///
     /// where:
     /// - `|pattern|` = length of the pattern
@@ -288,6 +292,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O(|prefix| log σ)`
+    /// - Space: `O(|prefix|)`
     ///
     /// where:
     /// - `|prefix|` = length of the prefix
@@ -334,6 +339,7 @@ impl PyFMIndex {
     /// #### Complexity
     ///
     /// - Time: `O(|suffix| log σ)`
+    /// - Space: `O(|suffix|)`
     ///
     /// where:
     /// - `|suffix|` = length of the suffix
@@ -398,6 +404,7 @@ mod tests {
                     .unwrap(),
                 "FMIndex(\"\")"
             );
+            assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
                 fm_index.item(py).unwrap().extract::<String>(py).unwrap(),
                 ""
@@ -437,6 +444,11 @@ mod tests {
             let fm_index = PyFMIndex::new(py, &PyString::new(py, "mississippi")).unwrap();
 
             assert_eq!(fm_index.__len__(py).unwrap(), 11);
+            assert!(
+                fm_index
+                    .__contains__(py, &PyString::new(py, "issi"))
+                    .unwrap()
+            );
             assert_eq!(
                 fm_index
                     .__repr__(py)
@@ -445,14 +457,10 @@ mod tests {
                     .unwrap(),
                 "FMIndex(\"mississippi\")"
             );
+            assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
                 fm_index.item(py).unwrap().extract::<String>(py).unwrap(),
                 "mississippi"
-            );
-            assert!(
-                fm_index
-                    .__contains__(py, &PyString::new(py, "issi"))
-                    .unwrap()
             );
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 12);
             assert_eq!(fm_index.count(py, &PyString::new(py, "issi")).unwrap(), 2);
@@ -502,6 +510,7 @@ mod tests {
                     .unwrap(),
                 "FMIndex(\"にわにはにわにわとりがいる\")"
             );
+            assert!(fm_index.__copy__(py).is_ok());
             assert!(
                 fm_index
                     .__contains__(py, &PyString::new(py, "にわ"))
@@ -551,6 +560,11 @@ mod tests {
                 PyFMIndex::new(py, &PyString::new(py, "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")).unwrap();
 
             assert_eq!(fm_index.__len__(py).unwrap(), 15);
+            assert!(
+                fm_index
+                    .__contains__(py, &PyString::new(py, "🐉🔥🌊"))
+                    .unwrap()
+            );
             assert_eq!(
                 fm_index
                     .__repr__(py)
@@ -559,14 +573,10 @@ mod tests {
                     .unwrap(),
                 "FMIndex(\"🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊\")"
             );
+            assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
                 fm_index.item(py).unwrap().extract::<String>(py).unwrap(),
                 "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
-            );
-            assert!(
-                fm_index
-                    .__contains__(py, &PyString::new(py, "🐉🔥🌊"))
-                    .unwrap()
             );
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 16);
             assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 3);
@@ -611,6 +621,7 @@ mod tests {
             let fm_index = PyFMIndex::new(py, &PyString::new(py, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦👨‍👧")).unwrap();
 
             assert_eq!(fm_index.__len__(py).unwrap(), 35);
+            assert!(fm_index.__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦")).unwrap());
             assert_eq!(
                 fm_index
                     .__repr__(py)
@@ -619,11 +630,11 @@ mod tests {
                     .unwrap(),
                 "FMIndex(\"👨‍👩‍👧‍👦👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦👨‍👧\")"
             );
+            assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
                 fm_index.item(py).unwrap().extract::<String>(py).unwrap(),
                 "👨‍👩‍👧‍👦👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦👨‍👧"
             );
-            assert!(fm_index.__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦")).unwrap());
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 36);
             assert_eq!(fm_index.count(py, &PyString::new(py, "👨‍👩‍👧‍👦")).unwrap(), 4);
             assert_eq!(
