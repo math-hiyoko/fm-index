@@ -28,8 +28,7 @@ $ pip install fm-index
 ### FMIndex
 #### Construction Complexity
 The time and space complexity: `O(|data| log σ)`  
-where σ is the size of the alphabet
-(e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.).
+where σ is the size of the alphabet (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.).  
 
 ```python
 >>> from fm_index import FMIndex
@@ -42,26 +41,21 @@ FMIndex("ACGTACGTTGACCTGACTGACTGACTGACGATCGATCGATCG...
 ```
 
 #### Count Substring Occurrences (count)
-Counts how many times a pattern appears in the indexed data.
-
-Time complexity: `O(|pattern| log σ)`  
-This does not depend on the length of the original data.
+Counts how many times a pattern appears in the indexed data.  
+Time complexity does not depend on the length of the original data.  
 
 ```python
->>> pattern = "GACTGACT"
->>> fm.count(pattern=pattern)
+>>> fm.count(pattern="GACTGACT")
 20
 ```
 
 #### Locate substring offset (locate)
-Finds all starting positions where a pattern occurs.
-
-Time complexity: `O((|pattern| + |output|) log σ)`  
-This does not depend on the length of the original data.
+Finds all starting positions where a pattern occurs.  
+Time complexity does not depend on the length of the original data.  
 
 ```python
 >>> pattern = "GACTGACT"
->>> fm.locate(pattern=pattern)
+>>> fm.locate(pattern="GACTGACT")
 [468, 418, 368, 318, 268, 218, 168, 118, 68, 18,
  464, 414, 364, 314, 264, 214, 164, 114, 64, 14]
 >>> genome[468 : 468 + len(pattern)]
@@ -94,35 +88,27 @@ MultiFMIndex(["政府はAI研究の支援を強化すると発表した。", "..
 ```
 
 #### Count Total Substring Occurrences (count_all)
-Counts the total number of occurrences of a pattern across all documents.
-
-Time complexity is `O(|pattern| log σ)`  
-This does not depend on the length of the data or the number of documents.
+Counts the total number of occurrences of a pattern across all documents.  
+Time complexity does not depend on the length of the data or the number of documents.  
 
 ```python
->>> pattern = "検索"
->>> mfm.count_all(pattern=pattern)
+>>> mfm.count_all(pattern="検索")
 3
 ```
 
 #### Count Substring Occurrences per Document (count)
-Counts how many times a pattern appears in each document.
-
-Time complexity: `O((|pattern| + total count) log σ)`  
-This does not depend on the length of the data or the number of documents.
+Counts how many times a pattern appears in each document.  
+Time complexity does not depend on the length of the data or the number of documents.  
 
 ```python
->>> pattern = "検索"
->>> mfm.count(pattern=pattern)
+>>> mfm.count(pattern="検索")
 {3: 1, 4: 1, 5: 1}
 ```
 This means documents[3], documents[4], and documents[5] each contain the pattern once.
 
 #### Locate Substring Offsets (locate)
-Finds the starting positions of a pattern in each document.
-
-Time complexity: `O((|pattern| + total_count) log σ)`  
-This does not depend on the length of the data or the number of documents.
+Finds the starting positions of a pattern in each document.  
+Time complexity does not depend on the length of the data or the number of documents.  
 
 ```python
 >>> pattern = "検索"
@@ -134,10 +120,8 @@ This does not depend on the length of the data or the number of documents.
 ⚠️ The order of results is not guaranteed.
 
 #### List Documents That Start With a Prefix (startswith)
-Returns document indices whose content starts with the given prefix.
-
-Time complexity: `O((|pattern| + |output|) log σ)`  
-This does not depend on the length of the data or the number of documents.
+Returns document indices whose content starts with the given prefix.  
+Time complexity does not depend on the length of the data or the number of documents.  
 
 ```python
 >>> prefix = "政府は"
@@ -148,10 +132,8 @@ True
 ```
 
 #### List Documents That End With a Suffix (endswith)
-Returns document indices whose content ends with the given suffix.
-
-Time complexity: `O((|pattern| + |output|) log σ)`  
-This does not depend on the length of the data or the number of documents.
+Returns document indices whose content ends with the given suffix.  
+Time complexity does not depend on the length of the data or the number of documents.  
 
 ```python
 >>> suffix = "注目している。"
