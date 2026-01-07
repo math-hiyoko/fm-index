@@ -109,14 +109,10 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             .chain(iter::once(None))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
-        let bwt = self
-            .base_fm_index
-            .burrows_wheeler_transform();
+        let bwt = self.base_fm_index.burrows_wheeler_transform();
 
-        Ok(
-            bwt.rank(&None, end)? != bwt.rank(&None, start)?
-        )
-    }   
+        Ok(bwt.rank(&None, end)? != bwt.rank(&None, start)?)
+    }
 
     pub(crate) fn count_all(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
@@ -181,9 +177,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
         let mut result = Vec::new();
         if start != end {
-            let bwt = self
-                .base_fm_index
-                .burrows_wheeler_transform();
+            let bwt = self.base_fm_index.burrows_wheeler_transform();
             let start_rank = bwt.rank(&None, start)?;
             let end_rank = bwt.rank(&None, end)?;
             for rank in start_rank + 1..=end_rank {

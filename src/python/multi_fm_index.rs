@@ -136,8 +136,7 @@ impl PyMultiFMIndex {
                     .values()?
                     .iter()
                     .map(|value| {
-                        String::from_utf8(value.to_vec())
-                            .map_err(PyUnicodeDecodeError::new_err)
+                        String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
                     .collect::<PyResult<Vec<_>>>()?;
                 PyResult::Ok(format!("MultiFMIndex({:?})", str_list))
@@ -146,10 +145,7 @@ impl PyMultiFMIndex {
                 let str_list = multi_fm_index
                     .values()?
                     .iter()
-                    .map(|value| {
-                        String::from_utf16(value)
-                            .map_err(PyUnicodeDecodeError::new_err)
-                    })
+                    .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(format!("MultiFMIndex({:?})", str_list))
             }
@@ -206,8 +202,7 @@ impl PyMultiFMIndex {
                     .values()?
                     .iter()
                     .map(|value| {
-                        String::from_utf8(value.to_vec())
-                            .map_err(PyUnicodeDecodeError::new_err)
+                        String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
                     .collect::<PyResult<Vec<_>>>()?;
                 PyResult::Ok(str_list)
@@ -216,10 +211,7 @@ impl PyMultiFMIndex {
                 let str_list = multi_fm_index
                     .values()?
                     .iter()
-                    .map(|value| {
-                        String::from_utf16(value)
-                            .map_err(PyUnicodeDecodeError::new_err)
-                    })
+                    .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(str_list)
             }
@@ -440,12 +432,11 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 0);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                0
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap()
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
                 format!("MultiFMIndex({:?})", values)
@@ -458,7 +449,11 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(!multi_fm_index.__contains__(py, &PyString::new(py, "")).unwrap());
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, ""))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
@@ -548,12 +543,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                3
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap().extract::<String>(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -564,7 +560,11 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(multi_fm_index.__contains__(py, &PyString::new(py, "")).unwrap());
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, ""))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
@@ -654,12 +654,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                3
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap().extract::<String>(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -670,8 +671,16 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(!multi_fm_index.__contains__(py, &PyString::new(py, "abc")).unwrap());
-            assert!(multi_fm_index.__contains__(py, &PyString::new(py, "abcabcabcabc")).unwrap());
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "abc"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "abcabcabcabc"))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
@@ -769,12 +778,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                3
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap().extract::<String>(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -785,8 +795,16 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(!multi_fm_index.__contains__(py, &PyString::new(py, "あいう")).unwrap());
-            assert!(multi_fm_index.__contains__(py, &PyString::new(py, "あいうあいうあいう")).unwrap());
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいうあいうあいう"))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
@@ -884,12 +902,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                3
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap().extract::<String>(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -900,8 +919,16 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(!multi_fm_index.__contains__(py, &PyString::new(py, "😀😃")).unwrap());
-            assert!(multi_fm_index.__contains__(py, &PyString::new(py, "😀😃😀😃😀😃")).unwrap());
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃😀😃😀😃"))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
@@ -999,12 +1026,13 @@ mod tests {
             let pysequence = pylist.cast::<PySequence>().unwrap();
             let multi_fm_index = PyMultiFMIndex::new(py, pysequence).unwrap();
 
+            assert_eq!(multi_fm_index.__len__(py).unwrap(), 3);
             assert_eq!(
-                multi_fm_index.__len__(py).unwrap(),
-                3
-            );
-            assert_eq!(
-                multi_fm_index.__repr__(py).unwrap().extract::<String>(py).unwrap(),
+                multi_fm_index
+                    .__repr__(py)
+                    .unwrap()
+                    .extract::<String>(py)
+                    .unwrap(),
                 format!("MultiFMIndex({:?})", values)
             );
             assert_eq!(
@@ -1015,8 +1043,16 @@ mod tests {
                     .unwrap(),
                 values
             );
-            assert!(!multi_fm_index.__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦")).unwrap());
-            assert!(multi_fm_index.__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦")).unwrap());
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
+                    .unwrap()
+            );
+            assert!(
+                multi_fm_index
+                    .__contains__(py, &PyString::new(py, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦"))
+                    .unwrap()
+            );
             assert_eq!(
                 multi_fm_index
                     .count_all(py, &PyString::new(py, ""))
