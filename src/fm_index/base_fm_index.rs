@@ -1,6 +1,6 @@
 use std::{collections, hash, ops};
 
-use num_traits::{PrimInt, Unsigned};
+use num_traits::{PrimInt, Unsigned, Zero};
 use pyo3::PyResult;
 
 use crate::utils::{
@@ -52,10 +52,11 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             counts_less.entry(symbol).or_insert(cumulative_count);
         }
 
-        let burrows_wheeler_transform = suffix_idx
-            .iter()
-            .map(|&idx| data.get((idx + len - 1) % len).copied().flatten())
-            .collect::<Vec<_>>();
+        let mut burrows_wheeler_transform = Vec::with_capacity(len);
+        for &idx in suffix_idx {
+            let prev = if idx == 0 { len - 1 } else { idx - 1 };
+            burrows_wheeler_transform.push(data[prev]);
+        }
         let burrows_wheeler_transform = WaveletMatrix::new(&burrows_wheeler_transform)?;
 
         Ok(BaseFMIndex {
@@ -69,12 +70,13 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
     #[inline]
     pub(super) fn lf_mapping(&self, index: usize) -> PyResult<usize> {
-        let symbol = self.burrows_wheeler_transform.access(index)?;
+        let bwt = &self.burrows_wheeler_transform;
+        let symbol = bwt.access(index)?;
         if symbol.is_none() && index == self.zero_suffix_idx {
             return Ok(0);
         }
 
-        let rank = self.burrows_wheeler_transform.rank(&symbol, index)?;
+        let rank = bwt.rank(&symbol, index)?;
         if symbol.is_none() {
             if index < self.zero_suffix_idx {
                 return Ok(rank + 1);
@@ -95,7 +97,11 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             steps += 1;
         }
         let suffix_idx_sampled = self.suffix_idx_sampled[index / SUFFIX_ARRAY_SAMPLING_RATE];
-        Ok((suffix_idx_sampled + steps) % self.len)
+        let mut idx = suffix_idx_sampled + steps;
+        if idx >= self.len {
+            idx -= self.len;
+        }
+        Ok(idx)
     }
 
     #[inline]
@@ -113,12 +119,20 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         let mut values = vec![None; self.len];
 
         if self.len > 0 {
-            let mut index = (self.suffix_idx_sampled[0] + self.len - 1) % self.len;
+            let mut index = if self.suffix_idx_sampled[0].is_zero() {
+                self.len - 1
+            } else {
+                self.suffix_idx_sampled[0] - 1
+            };
             let mut value_idx = 0usize;
             let bwt_values = self.burrows_wheeler_transform.values()?;
             for _ in 0..self.len {
                 values[index] = bwt_values[value_idx];
-                index = (index + self.len - 1) % self.len;
+                index = if index.is_zero() {
+                    self.len - 1
+                } else {
+                    index - 1
+                };
                 value_idx = self.lf_mapping(value_idx)?;
             }
         }

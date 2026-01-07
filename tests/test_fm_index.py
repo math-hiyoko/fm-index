@@ -44,6 +44,26 @@ def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert fm_index_ucs4.item() == "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
 
 
+def test_contains(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
+    assert "" in fm_index_empty
+    assert fm_index_empty.contains("")
+    assert "issi" in fm_index_ucs1
+    assert fm_index_ucs1.contains("issi")
+    assert "にわ" in fm_index_ucs2
+    assert fm_index_ucs2.contains("にわ")
+    assert "🐉🔥🌊" in fm_index_ucs4
+    assert fm_index_ucs4.contains("🐉🔥🌊")
+
+    assert "abc" not in fm_index_empty
+    assert not fm_index_empty.contains("abc")
+    assert "xyz" not in fm_index_ucs1
+    assert not fm_index_ucs1.contains("xyz")
+    assert "こんにちは" not in fm_index_ucs2
+    assert not fm_index_ucs2.contains("こんにちは")
+    assert "😀😃😄" not in fm_index_ucs4
+    assert not fm_index_ucs4.contains("😀😃😄")
+
+
 def test_count(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert fm_index_empty.count("") == 1
     assert fm_index_ucs1.count("issi") == 2

@@ -34,6 +34,10 @@ class BenchFMIndex:
     def bench_item(self, benchmark, random_fm_index):
         benchmark(random_fm_index.item)
 
+    def bench_contains(self, benchmark, random_fm_index):
+        pattern = random_fm_index.item()[:50]
+        benchmark(random_fm_index.contains, pattern)
+
     def bench_count(self, benchmark, random_fm_index):
         pattern = random_fm_index.item()[:50]
         benchmark(random_fm_index.count, pattern)

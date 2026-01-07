@@ -72,15 +72,9 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
         let mut step = 0usize;
         loop {
-            if self
-                .base_fm_index
-                .burrows_wheeler_transform()
-                .access(k)?
-                .is_none()
-            {
-                let doc_id = self.doc[&k];
+            if let Some(doc_id) = self.doc.get(&k) {
                 let offset = step;
-                return Ok((doc_id, offset));
+                return Ok((*doc_id, offset));
             }
             if k.is_multiple_of(SUFFIX_ARRAY_SAMPLING_RATE) {
                 let (doc_id, mut offset) = self.pos[k / SUFFIX_ARRAY_SAMPLING_RATE];
@@ -107,6 +101,22 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
         Ok(values)
     }
+
+    pub(crate) fn contains(&self, pattern: &[Element]) -> PyResult<bool> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .chain(iter::once(None))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+        let bwt = self
+            .base_fm_index
+            .burrows_wheeler_transform();
+
+        Ok(
+            bwt.rank(&None, end)? != bwt.rank(&None, start)?
+        )
+    }   
 
     pub(crate) fn count_all(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
@@ -171,20 +181,13 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
         let mut result = Vec::new();
         if start != end {
-            let start_rank = self
+            let bwt = self
                 .base_fm_index
-                .burrows_wheeler_transform()
-                .rank(&None, start)?;
-            let end_rank = self
-                .base_fm_index
-                .burrows_wheeler_transform()
-                .rank(&None, end)?;
+                .burrows_wheeler_transform();
+            let start_rank = bwt.rank(&None, start)?;
+            let end_rank = bwt.rank(&None, end)?;
             for rank in start_rank + 1..=end_rank {
-                let k = self
-                    .base_fm_index
-                    .burrows_wheeler_transform()
-                    .select(&None, rank)?
-                    .unwrap();
+                let k = bwt.select(&None, rank)?.unwrap();
                 let doc_id = self.doc[&k];
                 result.push(doc_id);
             }
@@ -224,6 +227,8 @@ mod tests {
 
         assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
+        assert!(!fm_index.contains(&[]).unwrap());
+        assert!(!fm_index.contains(b"a").unwrap());
         assert!(fm_index.count_all(&[]).unwrap().is_zero());
         assert!(fm_index.count_all(b"a").unwrap().is_zero());
         assert!(fm_index.count(&[]).unwrap().is_empty());
@@ -246,6 +251,8 @@ mod tests {
             fm_index.values().unwrap(),
             [vec![] as Vec<u8>, vec![] as Vec<u8>, vec![] as Vec<u8>]
         );
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(!fm_index.contains(b"a").unwrap());
         assert_eq!(fm_index.count_all(&[]).unwrap(), 3);
         assert_eq!(fm_index.count_all(b"a").unwrap(), 0);
         assert_eq!(
@@ -276,6 +283,9 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 4);
         assert_eq!(fm_index.values().unwrap(), data);
+        assert!(fm_index.contains(&[]).unwrap());
+        assert!(!fm_index.contains(b"a").unwrap());
+        assert!(fm_index.contains(b"aaaaaa").unwrap());
         assert_eq!(fm_index.count_all(&[]).unwrap(), 28);
         assert_eq!(fm_index.count_all(b"aa").unwrap(), 21);
         assert_eq!(
@@ -316,6 +326,9 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 3);
         assert_eq!(fm_index.values().unwrap(), data);
+        assert!(!fm_index.contains(&[]).unwrap());
+        assert!(!fm_index.contains(b"ana").unwrap());
+        assert!(fm_index.contains(b"banana").unwrap());
         assert_eq!(fm_index.count_all(b"ana").unwrap(), 4);
         assert_eq!(
             fm_index.count(b"ana").unwrap(),
