@@ -16,21 +16,26 @@ enum FMIndexEnum {
     U32(FMIndex<u32>),
 }
 
-/// An FM-index for efficient full-text search and pattern queries.
+/// An FM-index for efficient full-text search on a single string.
 ///
-/// The FM-index is a compressed text index based on the Burrows–Wheeler
-/// Transform. It enables fast substring search, allowing patterns to be
-/// counted and located in time independent of the original text length,
-/// while using significantly less memory than traditional indexes.
+/// The FM-index is a compressed text index based on the Burrows–Wheeler Transform (BWT).  
+/// It supports fast substring queries whose runtime depends only on the pattern length,  
+/// not on the size of the indexed text.
 ///
-/// #### Construction Complexity
-///
+/// ### Construction
+/// #### Time / Space Complexity
 /// - Time: `O(N log σ)`
 /// - Space: `O(N log σ)`
 ///
 /// where:
 /// - `N` = length of the indexed string
 /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
+///
+/// ```python
+/// from fm_index import FMIndex
+///
+/// fm = FMIndex("mississippi")
+/// ```
 #[derive(Clone)]
 #[pyclass(name = "FMIndex")]
 pub(crate) struct PyFMIndex {
@@ -99,23 +104,17 @@ impl PyFMIndex {
         self.__copy__(py)
     }
 
-    /// Convert the FMIndex back to a string.
+    /// Convert the FMIndex back into the original string.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(N log σ)`
     /// - Space: `O(N)`
     ///
-    /// where:
-    /// - `N` = length of the indexed string
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.item()
-    /// 'mississippi'
+    /// fm.item()
+    /// # 'mississippi'
     /// ```
     fn item(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
         match &self.inner {
@@ -143,24 +142,17 @@ impl PyFMIndex {
         }
     }
 
-    /// Check if the indexed string contains the given pattern.
+    /// Check whether the indexed string contains the given pattern.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> # "issi" in fm
-    /// >>> fm.contains("issi")
-    /// True
+    /// fm.contains("issi")
+    /// # True
     /// ```
     fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
         let pattern = unsafe { pattern.data()? };
@@ -191,23 +183,17 @@ impl PyFMIndex {
         })
     }
 
-    /// Count the occurrences of the given pattern in the indexed string.
+    /// Count how many times a pattern appears in the indexed string.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.count("issi")
-    /// 2
+    /// fm.count("issi")
+    /// # 2
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
         let pattern = unsafe { pattern.data()? };
@@ -238,25 +224,18 @@ impl PyFMIndex {
         })
     }
 
-    /// Locate all occurrences of the given pattern in the indexed string.  
-    /// Order of the returned positions is not guaranteed.
+    /// Locate all starting positions of the pattern in the indexed string.  
+    /// ⚠️ Order of returned positions is not guaranteed.
     ///
     /// #### Complexity
     ///
     /// - Time: `O((|pattern| + |count|) log σ)`
     /// - Space: `O(|pattern| + |count|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `|count|` = number of occurrences of the pattern in the indexed string
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.locate("issi")
-    /// [4, 1]
+    /// fm.locate("issi")
+    /// # [4, 1]
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let pattern = unsafe { pattern.data()? };
@@ -295,16 +274,10 @@ impl PyFMIndex {
     /// - Time: `O(|prefix| log σ)`
     /// - Space: `O(|prefix|)`
     ///
-    /// where:
-    /// - `|prefix|` = length of the prefix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.startswith("mi")
-    /// True
+    /// fm.startswith("mi")
+    /// # True
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<bool> {
         let prefix = unsafe { prefix.data()? };
@@ -348,10 +321,8 @@ impl PyFMIndex {
     ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import FMIndex
-    /// >>> fm = FMIndex("mississippi")
-    /// >>> fm.endswith("pi")
-    /// True
+    /// fm.endswith("pi")
+    /// # True
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<bool> {
         let suffix = unsafe { suffix.data()? };

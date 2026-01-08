@@ -16,21 +16,25 @@ enum MultiFMIndexEnum {
     U32(MultiFMIndex<u32>),
 }
 
-/// A Multi FM-index data structure for efficient substring search across multiple texts.
+/// A multi-document FM-index for fast substring search across multiple strings.  
 ///
-/// The MultiFMIndex builds a single FM-index over a collection of texts, enabling
-/// fast pattern counting and locating queries while keeping the index compact.
-/// Internally, the texts are concatenated with separators so that matches can be
-/// attributed back to the original text, making it suitable for multi-document search.
+/// Internally, all strings are concatenated with separators and indexed as a single FM-index,  
+/// while preserving the ability to map matches back to their original documents.  
 ///
-/// #### Construction Complexity
-///
+/// ### Construction
+/// #### Time / Space Complexity
 /// - Time: `O(S log σ)`
 /// - Space: `O(S log σ)`
 ///
 /// where:
 /// - `S` = total length of all indexed strings
 /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
+///
+/// ```python
+/// from fm_index import MultiFMIndex
+///
+/// mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
+/// ```
 #[derive(Clone)]
 #[pyclass(name = "MultiFMIndex")]
 pub(crate) struct PyMultiFMIndex {
@@ -178,23 +182,17 @@ impl PyMultiFMIndex {
         self.__copy__(py)
     }
 
-    /// Convert the MultiFM-Index back to a list of strings.
+    /// Convert the index back into the original list of strings.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(S log σ)`
     /// - Space: `O(S)`
     ///
-    /// where:
-    /// - `S` = total length of all indexed strings
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import MultiFMIndex
-    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >>> mfm.item()
-    /// ['abcabcabcabc', 'xxabcabcxxabc', 'abcababcabc']
+    /// mfm.item()
+    /// # ['abcabcabcabc', 'xxabcabcxxabc', 'abcababcabc']
     /// ```
     fn item(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
         let str_list = py.detach(move || match &self.inner {
@@ -233,26 +231,17 @@ impl PyMultiFMIndex {
         Ok(PyList::new(py, str_list)?.unbind())
     }
 
-    /// Check if the given pattern exists in any of the indexed strings.
+    /// Check if the pattern exists as a full document in the index.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import MultiFMIndex
-    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >>> # "abc" in mfm
-    /// >>> mfm.contains("abc")
-    /// False
-    /// >>> mfm.contains("abcabcabcabc")
-    /// True
+    /// mfm.contains("abcabcabcabc")
+    /// # True
     /// ```
     fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
         let pattern = unsafe { pattern.data()? };
@@ -283,23 +272,17 @@ impl PyMultiFMIndex {
         })
     }
 
-    /// Count the total occurrences of the given pattern across all indexed strings.
+    /// Count total occurrences of a pattern across all documents.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|pattern| log σ)`
     /// - Space: `O(|pattern|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import MultiFMIndex
-    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >>> mfm.count_all("abc")
-    /// 10
+    /// mfm.count_all("abc")
+    /// # 10
     /// ```
     fn count_all(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
         let pattern = unsafe { pattern.data()? };
@@ -330,25 +313,18 @@ impl PyMultiFMIndex {
         })
     }
 
-    /// Count the occurrences of the given pattern in each indexed string.
+    /// Count occurrences per document.  
+    /// Returns {doc_index: count}.
     ///
     /// #### Complexity
     ///
     /// - Time: `O((|pattern| + |total_count|) log σ)`
     /// - Space: `O(|pattern| + |output|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `|total_count|` = total number of occurrences across all strings
-    /// - `|output|` = number of indexed strings containing the pattern
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import MultiFMIndex
-    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >>> mfm.count("abc")
-    /// {1: 3, 2: 3, 0: 4}
+    /// mfm.count("abc")
+    /// # {0: 4, 1: 3, 2: 3}
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
         let pattern = unsafe { pattern.data()? };
@@ -380,25 +356,18 @@ impl PyMultiFMIndex {
         Ok(count.into_py_dict(py)?.unbind())
     }
 
-    /// Locate all occurrences of the given pattern in each indexed string.  
-    /// Order of occurrences in each string is not guaranteed.
+    /// Locate occurrences per document.  
+    /// ⚠️ Order is not guaranteed.
     ///
     /// #### Complexity
     ///
     /// - Time: `O((|pattern| + |total_count|) log σ)`
     /// - Space: `O(|pattern| + |total_count|)`
     ///
-    /// where:
-    /// - `|pattern|` = length of the pattern
-    /// - `|total_count|` = total number of occurrences across all strings
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >>> from fm_index import MultiFMIndex
-    /// >>> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >>> mfm.locate("abc")
-    /// {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
+    /// mfm.locate("abc")
+    /// # {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
         let pattern = unsafe { pattern.data()? };
@@ -430,24 +399,17 @@ impl PyMultiFMIndex {
         Ok(locate.into_py_dict(py)?.unbind())
     }
 
-    /// List the indices of strings that start with the given prefix.  
-    /// Order of indices is not guaranteed.
+    /// List document indices whose content starts with the prefix.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|prefix| log σ)`
     /// - Space: `O(|prefix|)`
     ///
-    /// where:
-    /// - `|prefix|` = length of the prefix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >> from fm_index import MultiFMIndex
-    /// >> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >> mfm.startswith("abc")
-    /// [2, 0]
+    /// mfm.startswith("abc")
+    /// # [2, 0]
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let prefix = unsafe { prefix.data()? };
@@ -479,24 +441,17 @@ impl PyMultiFMIndex {
         Ok(PyList::new(py, result)?.unbind())
     }
 
-    /// List the indices of strings that end with the given suffix.  
-    /// Order of indices is not guaranteed.
+    /// List document indices whose content ends with the suffix.
     ///
     /// #### Complexity
     ///
     /// - Time: `O(|suffix| log σ)`
     /// - Space: `O(|suffix|)`
     ///
-    /// where:
-    /// - `|suffix|` = length of the suffix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
-    /// >> from fm_index import MultiFMIndex
-    /// >> mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
-    /// >> mfm.endswith("abc")
-    /// [2, 1, 0]
+    /// mfm.endswith("abc")
+    /// # [2, 1, 0]
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let suffix = unsafe { suffix.data()? };
