@@ -50,6 +50,10 @@ class BenchMultiFMIndex:
         pattern = random_multi_fm_index.item()[0][:50]
         benchmark(random_multi_fm_index.locate, pattern)
 
+    def bench_multi_iter_locate(self, benchmark, random_multi_fm_index):
+        pattern = random_multi_fm_index.item()[0][:50]
+        benchmark(random_multi_fm_index.iter_locate, pattern)
+
     def bench_multi_startswith(self, benchmark, random_multi_fm_index):
         prefix = random_multi_fm_index.item()[0][:50]
         benchmark(random_multi_fm_index.startswith, prefix)

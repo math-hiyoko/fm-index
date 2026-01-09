@@ -42,6 +42,9 @@
                                 <a class="function" href="#FMIndex.locate">locate</a>
                         </li>
                         <li>
+                                <a class="function" href="#FMIndex.iter_locate">iter_locate</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#FMIndex.startswith">startswith</a>
                         </li>
                         <li>
@@ -70,6 +73,9 @@
                         </li>
                         <li>
                                 <a class="function" href="#MultiFMIndex.locate">locate</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#MultiFMIndex.iter_locate">iter_locate</a>
                         </li>
                         <li>
                                 <a class="function" href="#MultiFMIndex.startswith">startswith</a>
@@ -270,6 +276,44 @@ not on the size of the indexed text.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
 <span class="c1"># [4, 1]</span>
+</code></pre>
+</div>
+</div>
+
+
+                            </div>
+                            <div id="FMIndex.iter_locate" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">iter_locate</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span>, </span><span class="param"><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#FMIndex.iter_locate"></a>
+    
+            <div class="docstring"><p>Lazily locate all starting positions of the pattern in the indexed string.</p>
+
+<p>This method yields the same positions as <code><a href="#FMIndex.locate">locate</a></code>, but returns them
+one by one as an iterator instead of allocating a list.</p>
+
+<p>⚠️ Order of yielded positions is not guaranteed.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|pattern| log σ)</code> for initialization, <code>O(log σ)</code> per yielded position</li>
+<li>Space: <code>O(|pattern|)</code></li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nb">iter</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
+<span class="c1"># 4</span>
+<span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
+<span class="c1"># 1</span>
 </code></pre>
 </div>
 </div>
@@ -542,6 +586,45 @@ Returns {doc_index: count}.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
 <span class="c1"># {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}</span>
+</code></pre>
+</div>
+</div>
+
+
+                            </div>
+                            <div id="MultiFMIndex.iter_locate" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">iter_locate</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span>, </span><span class="param"><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#MultiFMIndex.iter_locate"></a>
+    
+            <div class="docstring"><p>Lazily locate all occurrences of the pattern across documents.</p>
+
+<p>Yields <code>(doc_index, position)</code> pairs without constructing
+an intermediate result dictionary.</p>
+
+<p>⚠️ Order of yielded results is not guaranteed.</p>
+
+<h3 id="complexity">Complexity</h3>
+
+<ul>
+<li>Time: <code>O(|pattern| log σ)</code> to initialize, then <code>O(log σ)</code> per yielded occurrence.</li>
+<li>Space: <code>O(|pattern|)</code></li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
+<span class="c1"># (2, 8)</span>
+<span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
+<span class="c1"># (1, 10)</span>
+<span class="o">...</span>
 </code></pre>
 </div>
 </div>

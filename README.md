@@ -63,6 +63,21 @@ fm.locate(pattern="GACTGACT")
 # [18, 14]
 ```
 
+### Iterative Locate (Streaming)
+For large result sets, iter_locate provides a memory-efficient  
+iterator interface that yields positions lazily.
+
+```python
+for pos in fm.iter_locate(pattern="GACTGACT"):
+    print(pos)
+# 18
+# 14
+```
+
+- Same results as locate
+- Does not allocate a result list
+- Suitable for streaming and early termination
+
 ## MultiFMIndex (Multiple Documents)
 MultiFMIndex extends FMIndex to support multiple documents  
 while keeping query time independent of corpus size
@@ -104,6 +119,15 @@ mfm.locate(pattern="検索")
 # {5: [13], 4: [7], 3: [6]}
 ```
 
+### Iterative Locate (Streaming)
+```python
+for doc_id, pos in mfm.iter_locate(pattern="検索"):
+    print(doc_id, pos)
+# 4 7
+# 5 13
+# 3 6
+```
+
 ### Prefix / Suffix Search
 ```python
 mfm.startswith(prefix="政府は")
@@ -142,8 +166,8 @@ pdoc fm_index \
 
 - P. Ferragina and G. Manzini,  
   Opportunistic data structures with applications,  
-  Proceedings 41st Annual Symposium on Foundations of Computer Science,
-  Redondo Beach, CA, USA,
-  2000,
-  pp. 390-398,
+  Proceedings 41st Annual Symposium on Foundations of Computer Science,  
+  Redondo Beach, CA, USA,  
+  2000,  
+  pp. 390-398,  
   https://doi.org/10.1109/SFCS.2000.892127.  

@@ -69,7 +69,19 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         })
     }
 
-    fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
+    #[inline]
+    pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        Ok((start, end))
+    }
+
+    #[inline]
+    pub(crate) fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
         let mut step = 0usize;
         loop {
             if let Some(doc_id) = self.doc.get(&k) {
