@@ -988,6 +988,16 @@ mod tests {
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some((2, 8))
             );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "あいう"))
+                    .is_ok()
+            );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "😀😃😀"))
+                    .is_ok()
+            );
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1207,6 +1217,16 @@ mod tests {
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some((2, 5))
             );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "abc"))
+                    .is_ok()
+            );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "😀😃😀"))
+                    .is_ok()
+            );
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1425,6 +1445,16 @@ mod tests {
             assert_eq!(
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some((2, 0))
+            );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "abc"))
+                    .is_ok()
+            );
+            assert!(
+                multi_fm_index
+                    .iter_locate(py, &PyString::new(py, "あいう"))
+                    .is_ok()
             );
             assert_eq!(
                 multi_fm_index

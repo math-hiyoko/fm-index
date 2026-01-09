@@ -171,6 +171,44 @@ def test_locate(
     }
 
 
+def test_iter_locate(
+    multi_fm_index_empty,
+    multi_fm_index_empties,
+    multi_fm_index_ucs1,
+    multi_fm_index_ucs2,
+    multi_fm_index_ucs4,
+):
+    assert list(multi_fm_index_empty.iter_locate("")) == []
+    assert list(multi_fm_index_empties.iter_locate("")) == [(2, 0), (1, 0), (0, 0)]
+    assert list(multi_fm_index_ucs1.iter_locate("abc")) == [
+        (2, 8),
+        (1, 10),
+        (0, 9),
+        (2, 0),
+        (2, 5),
+        (0, 6),
+        (0, 3),
+        (0, 0),
+        (1, 2),
+        (1, 5),
+    ]
+    assert list(multi_fm_index_ucs2.iter_locate("あいう")) == [
+        (2, 5),
+        (0, 6),
+        (1, 5),
+        (2, 0),
+        (0, 3),
+        (1, 2),
+        (0, 0),
+    ]
+    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀")) == [
+        (2, 0),
+        (0, 2),
+        (1, 2),
+        (0, 0),
+    ]
+
+
 def test_startswith(
     multi_fm_index_empty,
     multi_fm_index_empties,

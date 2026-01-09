@@ -78,6 +78,13 @@ def test_locate(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert fm_index_ucs4.locate("🐉🔥🌊") == [12, 6, 1]
 
 
+def test_iter_locate(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
+    assert list(fm_index_empty.iter_locate("")) == [0]
+    assert list(fm_index_ucs1.iter_locate("issi")) == [4, 1]
+    assert list(fm_index_ucs2.iter_locate("にわ")) == [6, 0, 4]
+    assert list(fm_index_ucs4.iter_locate("🐉🔥🌊")) == [12, 6, 1]
+
+
 def test_startswith(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert fm_index_empty.startswith("") is True
     assert fm_index_ucs1.startswith("mis") is True

@@ -609,6 +609,12 @@ mod tests {
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some(4)
             );
+            assert!(fm_index.iter_locate(py, &PyString::new(py, "にわ")).is_ok());
+            assert!(
+                fm_index
+                    .iter_locate(py, &PyString::new(py, "🐉🔥🌊"))
+                    .is_ok()
+            );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
             assert!(fm_index.startswith(py, &PyString::new(py, "miss")).unwrap());
             assert!(!fm_index.startswith(py, &PyString::new(py, "にわ")).unwrap());
@@ -710,6 +716,12 @@ mod tests {
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some(6)
             );
+            assert!(fm_index.iter_locate(py, &PyString::new(py, "issi")).is_ok());
+            assert!(
+                fm_index
+                    .iter_locate(py, &PyString::new(py, "🐉🔥🌊"))
+                    .is_ok()
+            );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
             assert!(!fm_index.startswith(py, &PyString::new(py, "issi")).unwrap());
             assert!(
@@ -806,6 +818,8 @@ mod tests {
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
                 Some(12)
             );
+            assert!(fm_index.iter_locate(py, &PyString::new(py, "issi")).is_ok());
+            assert!(fm_index.iter_locate(py, &PyString::new(py, "にわ")).is_ok());
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
             assert!(!fm_index.startswith(py, &PyString::new(py, "issi")).unwrap());
             assert!(!fm_index.startswith(py, &PyString::new(py, "にわ")).unwrap());
