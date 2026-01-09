@@ -1,4 +1,4 @@
-use std::char;
+use std::{char, sync};
 
 use pyo3::{
     PyResult,
@@ -9,11 +9,56 @@ use pyo3::{
 
 use crate::fm_index::fm_index::FMIndex;
 
+enum IterLocateFMIndexEnum {
+    U8(sync::Arc<FMIndex<u8>>),
+    U16(sync::Arc<FMIndex<u16>>),
+    U32(sync::Arc<FMIndex<u32>>),
+}
+
+#[pyclass]
+struct IterLocate {
+    k: usize,
+    end: usize,
+    fm_index: sync::Arc<IterLocateFMIndexEnum>,
+}
+
+impl IterLocate {
+    fn new(fm_index: IterLocateFMIndexEnum, start: usize, end: usize) -> Self {
+        IterLocate {
+            k: start,
+            end,
+            fm_index: sync::Arc::new(fm_index),
+        }
+    }
+}
+
+#[pymethods]
+impl IterLocate {
+    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<Self>, py: Python<'_>) -> PyResult<Option<usize>> {
+        if slf.k >= slf.end {
+            return Ok(None);
+        }
+        let k = slf.k;
+        let fm_index = sync::Arc::clone(&slf.fm_index);
+        let result = py.detach(move || match &*fm_index {
+            IterLocateFMIndexEnum::U8(fm_index) => fm_index.suffix_idx(k),
+            IterLocateFMIndexEnum::U16(fm_index) => fm_index.suffix_idx(k),
+            IterLocateFMIndexEnum::U32(fm_index) => fm_index.suffix_idx(k),
+        })?;
+        slf.k += 1;
+        Ok(Some(result))
+    }
+}
+
 #[derive(Clone)]
 enum FMIndexEnum {
-    U8(FMIndex<u8>),
-    U16(FMIndex<u16>),
-    U32(FMIndex<u32>),
+    U8(sync::Arc<FMIndex<u8>>),
+    U16(sync::Arc<FMIndex<u16>>),
+    U32(sync::Arc<FMIndex<u32>>),
 }
 
 /// An FM-index for efficient full-text search on a single string.
@@ -50,9 +95,9 @@ impl PyFMIndex {
         let data = unsafe { data.data()? };
         py.detach(move || {
             let fm_index = match data {
-                PyStringData::Ucs1(data) => FMIndexEnum::U8(FMIndex::new(data)?),
-                PyStringData::Ucs2(data) => FMIndexEnum::U16(FMIndex::new(data)?),
-                PyStringData::Ucs4(data) => FMIndexEnum::U32(FMIndex::new(data)?),
+                PyStringData::Ucs1(data) => FMIndexEnum::U8(sync::Arc::new(FMIndex::new(data)?)),
+                PyStringData::Ucs2(data) => FMIndexEnum::U16(sync::Arc::new(FMIndex::new(data)?)),
+                PyStringData::Ucs4(data) => FMIndexEnum::U32(sync::Arc::new(FMIndex::new(data)?)),
             };
             Ok(PyFMIndex { inner: fm_index })
         })
@@ -267,6 +312,82 @@ impl PyFMIndex {
         Ok(PyList::new(py, &locate)?.unbind())
     }
 
+    /// Lazily locate all starting positions of the pattern in the indexed string.
+    ///
+    /// This method yields the same positions as `locate`, but returns them
+    /// one by one as an iterator instead of allocating a list.
+    ///
+    /// ⚠️ Order of yielded positions is not guaranteed.
+    ///
+    /// #### Complexity
+    ///
+    /// - Time: `O(|pattern| log σ)` for initialization, `O(log σ)` per yielded position
+    /// - Space: `O(|pattern|)`
+    ///
+    /// #### Examples
+    /// ```python
+    /// iter = fm.iter_locate("issi")
+    /// next(iter)
+    /// # 4
+    /// next(iter)
+    /// # 1
+    /// ```
+    fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
+        let pattern = unsafe { pattern.data()? };
+        py.detach(move || match &self.inner {
+            FMIndexEnum::U8(fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => data,
+                    _ => {
+                        return PyResult::Ok(IterLocate::new(
+                            IterLocateFMIndexEnum::U8(fm_index.clone()),
+                            0,
+                            0,
+                        ));
+                    }
+                };
+                let (start, end) = fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateFMIndexEnum::U8(fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+            FMIndexEnum::U16(fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => data,
+                    _ => {
+                        return Ok(IterLocate::new(
+                            IterLocateFMIndexEnum::U16(fm_index.clone()),
+                            0,
+                            0,
+                        ));
+                    }
+                };
+                let (start, end) = fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateFMIndexEnum::U16(fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+            FMIndexEnum::U32(fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs4(data) => data,
+                };
+                let (start, end) = fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateFMIndexEnum::U32(fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+        })
+    }
+
     /// Check if the indexed string starts with the given prefix.
     ///
     /// #### Complexity
@@ -421,6 +542,16 @@ mod tests {
                     .__contains__(py, &PyString::new(py, "issi"))
                     .unwrap()
             );
+            assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "にわ"))
+                    .unwrap()
+            );
+            assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "🐉🔥🌊"))
+                    .unwrap()
+            );
             assert_eq!(
                 fm_index
                     .__repr__(py)
@@ -436,6 +567,8 @@ mod tests {
             );
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 12);
             assert_eq!(fm_index.count(py, &PyString::new(py, "issi")).unwrap(), 2);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 0);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 0);
             assert_eq!(
                 fm_index
                     .locate(py, &PyString::new(py, ""))
@@ -452,8 +585,38 @@ mod tests {
                     .unwrap(),
                 [4, 1]
             );
+            assert_eq!(
+                fm_index
+                    .locate(py, &PyString::new(py, "にわ"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new(),
+            );
+            assert_eq!(
+                fm_index
+                    .locate(py, &PyString::new(py, "🐉🔥🌊"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new(),
+            );
+            let iter_locate = fm_index
+                .iter_locate(py, &PyString::new(py, "issi"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some(4)
+            );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
             assert!(fm_index.startswith(py, &PyString::new(py, "miss")).unwrap());
+            assert!(!fm_index.startswith(py, &PyString::new(py, "にわ")).unwrap());
+            assert!(
+                !fm_index
+                    .startswith(py, &PyString::new(py, "🐉🔥🌊"))
+                    .unwrap()
+            );
             assert!(
                 !fm_index
                     .startswith(py, &PyString::new(py, "いっぴ"))
@@ -461,7 +624,8 @@ mod tests {
             );
             assert!(fm_index.endswith(py, &PyString::new(py, "")).unwrap());
             assert!(fm_index.endswith(py, &PyString::new(py, "ippi")).unwrap());
-            assert!(!fm_index.endswith(py, &PyString::new(py, "ミス")).unwrap());
+            assert!(!fm_index.endswith(py, &PyString::new(py, "にわ")).unwrap());
+            assert!(!fm_index.endswith(py, &PyString::new(py, "🐉🔥🌊")).unwrap());
         });
     }
 
@@ -484,8 +648,18 @@ mod tests {
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "issi"))
+                    .unwrap()
+            );
+            assert!(
                 fm_index
                     .__contains__(py, &PyString::new(py, "にわ"))
+                    .unwrap()
+            );
+            assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "🐉🔥🌊"))
                     .unwrap()
             );
             assert_eq!(
@@ -493,7 +667,9 @@ mod tests {
                 "にわにはにわにわとりがいる"
             );
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 14);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "issi")).unwrap(), 0);
             assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 3);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 0);
             assert_eq!(
                 fm_index
                     .locate(py, &PyString::new(py, ""))
@@ -504,13 +680,38 @@ mod tests {
             );
             assert_eq!(
                 fm_index
+                    .locate(py, &PyString::new(py, "issi"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                fm_index
                     .locate(py, &PyString::new(py, "にわ"))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [6, 0, 4]
             );
+            assert_eq!(
+                fm_index
+                    .locate(py, &PyString::new(py, "🐉🔥🌊"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            let iter_locate = fm_index
+                .iter_locate(py, &PyString::new(py, "にわ"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some(6)
+            );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
+            assert!(!fm_index.startswith(py, &PyString::new(py, "issi")).unwrap());
             assert!(
                 fm_index
                     .startswith(py, &PyString::new(py, "にわに"))
@@ -518,6 +719,7 @@ mod tests {
             );
             assert!(!fm_index.startswith(py, &PyString::new(py, "🐓")).unwrap());
             assert!(fm_index.endswith(py, &PyString::new(py, "")).unwrap());
+            assert!(!fm_index.endswith(py, &PyString::new(py, "issi")).unwrap());
             assert!(fm_index.endswith(py, &PyString::new(py, "がいる")).unwrap());
             assert!(!fm_index.endswith(py, &PyString::new(py, "🕊️")).unwrap());
         });
@@ -532,6 +734,16 @@ mod tests {
                 PyFMIndex::new(py, &PyString::new(py, "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")).unwrap();
 
             assert_eq!(fm_index.__len__(py).unwrap(), 15);
+            assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "issi"))
+                    .unwrap()
+            );
+            assert!(
+                !fm_index
+                    .__contains__(py, &PyString::new(py, "にわ"))
+                    .unwrap()
+            );
             assert!(
                 fm_index
                     .__contains__(py, &PyString::new(py, "🐉🔥🌊"))
@@ -551,6 +763,8 @@ mod tests {
                 "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
             );
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 16);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "issi")).unwrap(), 0);
+            assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 0);
             assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 3);
             assert_eq!(
                 fm_index
@@ -562,13 +776,39 @@ mod tests {
             ); // "⚔️" counts as 2 letters
             assert_eq!(
                 fm_index
+                    .locate(py, &PyString::new(py, "issi"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new(),
+            ); // "⚔️" counts as 2 letters
+            assert_eq!(
+                fm_index
+                    .locate(py, &PyString::new(py, "にわ"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new(),
+            ); // "⚔️" counts as 2 letters
+            assert_eq!(
+                fm_index
                     .locate(py, &PyString::new(py, "🐉🔥🌊"))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
-                [12, 6, 1]
+                [12, 6, 1],
             ); // "⚔️" counts as 2 letters
+            let iter_locate = fm_index
+                .iter_locate(py, &PyString::new(py, "🐉🔥"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some(12)
+            );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
+            assert!(!fm_index.startswith(py, &PyString::new(py, "issi")).unwrap());
+            assert!(!fm_index.startswith(py, &PyString::new(py, "にわ")).unwrap());
             assert!(
                 fm_index
                     .startswith(py, &PyString::new(py, "🏰🐉🔥"))
@@ -580,6 +820,8 @@ mod tests {
                     .unwrap()
             );
             assert!(fm_index.endswith(py, &PyString::new(py, "")).unwrap());
+            assert!(!fm_index.endswith(py, &PyString::new(py, "issi")).unwrap());
+            assert!(!fm_index.endswith(py, &PyString::new(py, "にわ")).unwrap());
             assert!(fm_index.endswith(py, &PyString::new(py, "🐉🔥🌊")).unwrap());
             assert!(!fm_index.endswith(py, &PyString::new(py, "⚔️🐉🔥")).unwrap());
         });

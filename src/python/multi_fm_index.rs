@@ -1,4 +1,4 @@
-use std::{char, collections};
+use std::{char, collections, sync};
 
 use pyo3::{
     PyResult,
@@ -9,11 +9,56 @@ use pyo3::{
 
 use crate::fm_index::multi_fm_index::MultiFMIndex;
 
+enum IterLocateMultiFMIndexEnum {
+    U8(sync::Arc<MultiFMIndex<u8>>),
+    U16(sync::Arc<MultiFMIndex<u16>>),
+    U32(sync::Arc<MultiFMIndex<u32>>),
+}
+
+#[pyclass]
+struct IterLocate {
+    k: usize,
+    end: usize,
+    multi_fm_index: sync::Arc<IterLocateMultiFMIndexEnum>,
+}
+
+impl IterLocate {
+    fn new(multi_fm_index: IterLocateMultiFMIndexEnum, start: usize, end: usize) -> Self {
+        IterLocate {
+            k: start,
+            end,
+            multi_fm_index: sync::Arc::new(multi_fm_index),
+        }
+    }
+}
+
+#[pymethods]
+impl IterLocate {
+    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<Self>, py: Python<'_>) -> PyResult<Option<(usize, usize)>> {
+        if slf.k >= slf.end {
+            return Ok(None);
+        }
+        let k = slf.k;
+        let multi_fm_index = sync::Arc::clone(&slf.multi_fm_index);
+        let result = py.detach(move || match &*multi_fm_index {
+            IterLocateMultiFMIndexEnum::U8(multi_fm_index) => multi_fm_index.doc_offset(k),
+            IterLocateMultiFMIndexEnum::U16(multi_fm_index) => multi_fm_index.doc_offset(k),
+            IterLocateMultiFMIndexEnum::U32(multi_fm_index) => multi_fm_index.doc_offset(k),
+        })?;
+        slf.k += 1;
+        Ok(Some(result))
+    }
+}
+
 #[derive(Clone)]
 enum MultiFMIndexEnum {
-    U8(MultiFMIndex<u8>),
-    U16(MultiFMIndex<u16>),
-    U32(MultiFMIndex<u32>),
+    U8(sync::Arc<MultiFMIndex<u8>>),
+    U16(sync::Arc<MultiFMIndex<u16>>),
+    U32(sync::Arc<MultiFMIndex<u32>>),
 }
 
 /// A multi-document FM-index for fast substring search across multiple strings.  
@@ -80,7 +125,7 @@ impl PyMultiFMIndex {
                         .collect::<Vec<_>>();
                     let multi_multi_fm_index = MultiFMIndex::new(&data)?;
                     Ok(PyMultiFMIndex {
-                        inner: MultiFMIndexEnum::U8(multi_multi_fm_index),
+                        inner: MultiFMIndexEnum::U8(sync::Arc::new(multi_multi_fm_index)),
                     })
                 }
                 StringData::Ucs2(_) => {
@@ -96,7 +141,7 @@ impl PyMultiFMIndex {
                         .collect::<Vec<_>>();
                     let multi_multi_fm_index = MultiFMIndex::new(&data)?;
                     Ok(PyMultiFMIndex {
-                        inner: MultiFMIndexEnum::U16(multi_multi_fm_index),
+                        inner: MultiFMIndexEnum::U16(sync::Arc::new(multi_multi_fm_index)),
                     })
                 }
                 StringData::Ucs4(_) => {
@@ -114,7 +159,7 @@ impl PyMultiFMIndex {
                         .collect::<Vec<_>>();
                     let multi_multi_fm_index = MultiFMIndex::new(&data)?;
                     Ok(PyMultiFMIndex {
-                        inner: MultiFMIndexEnum::U32(multi_multi_fm_index),
+                        inner: MultiFMIndexEnum::U32(sync::Arc::new(multi_multi_fm_index)),
                     })
                 }
             },
@@ -397,6 +442,83 @@ impl PyMultiFMIndex {
             }
         })?;
         Ok(locate.into_py_dict(py)?.unbind())
+    }
+
+    /// Lazily locate all occurrences of the pattern across documents.
+    ///
+    /// Yields `(doc_index, position)` pairs without constructing
+    /// an intermediate result dictionary.
+    ///
+    /// ⚠️ Order of yielded results is not guaranteed.
+    ///
+    /// ### Complexity
+    ///
+    /// - Time: `O(|pattern| log σ)` to initialize, then `O(log σ)` per yielded occurrence.
+    /// - Space: `O(|pattern|)`
+    ///
+    /// #### Examples
+    /// ```python
+    /// iter = mfm.iter_locate("abc")
+    /// next(iter)
+    /// # (2, 8)
+    /// next(iter)
+    /// # (1, 10)
+    /// ...
+    /// ```
+    fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
+        let pattern = unsafe { pattern.data()? };
+        py.detach(move || match &self.inner {
+            MultiFMIndexEnum::U8(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => data,
+                    _ => {
+                        return PyResult::Ok(IterLocate::new(
+                            IterLocateMultiFMIndexEnum::U8(multi_fm_index.clone()),
+                            0,
+                            0,
+                        ));
+                    }
+                };
+                let (start, end) = multi_fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateMultiFMIndexEnum::U8(multi_fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+            MultiFMIndexEnum::U16(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => data,
+                    _ => {
+                        return Ok(IterLocate::new(
+                            IterLocateMultiFMIndexEnum::U16(multi_fm_index.clone()),
+                            0,
+                            0,
+                        ));
+                    }
+                };
+                let (start, end) = multi_fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateMultiFMIndexEnum::U16(multi_fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+            MultiFMIndexEnum::U32(multi_fm_index) => {
+                let pattern = match pattern {
+                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs4(data) => data,
+                };
+                let (start, end) = multi_fm_index.range_search(pattern)?;
+                Ok(IterLocate::new(
+                    IterLocateMultiFMIndexEnum::U32(multi_fm_index.clone()),
+                    start,
+                    end,
+                ))
+            }
+        })
     }
 
     /// List document indices whose content starts with the prefix.
@@ -748,6 +870,16 @@ mod tests {
                     .unwrap()
             );
             assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+            );
+            assert!(
                 multi_fm_index
                     .__contains__(py, &PyString::new(py, "abcabcabcabc"))
                     .unwrap()
@@ -766,6 +898,18 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .count_all(py, &PyString::new(py, "あいう"))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count_all(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                multi_fm_index
                     .count(py, &PyString::new(py, ""))
                     .unwrap()
                     .extract::<collections::HashMap<_, _>>(py)
@@ -779,6 +923,22 @@ mod tests {
                     .extract::<collections::HashMap<_, _>>(py)
                     .unwrap(),
                 collections::HashMap::<usize, usize>::from([(0, 4), (1, 3), (2, 3)])
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
             );
             assert_eq!(
                 multi_fm_index
@@ -806,6 +966,30 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .locate(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .locate(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            let iter_locate = multi_fm_index
+                .iter_locate(py, &PyString::new(py, "abc"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some((2, 8))
+            );
+            assert_eq!(
+                multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
@@ -822,6 +1006,22 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .startswith(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .startswith(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .endswith(py, &PyString::new(py, ""))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
@@ -835,6 +1035,22 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [1]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .endswith(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .endswith(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
             );
         });
     }
@@ -869,12 +1085,22 @@ mod tests {
             );
             assert!(
                 !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "issi"))
+                    .unwrap()
+            );
+            assert!(
+                !multi_fm_index
                     .__contains__(py, &PyString::new(py, "あいう"))
                     .unwrap()
             );
             assert!(
                 multi_fm_index
                     .__contains__(py, &PyString::new(py, "あいうあいうあいう"))
+                    .unwrap()
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "😀😃😀"))
                     .unwrap()
             );
             assert_eq!(
@@ -885,9 +1111,21 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .count_all(py, &PyString::new(py, "abc"))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                multi_fm_index
                     .count_all(py, &PyString::new(py, "あいう"))
                     .unwrap(),
                 7
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count_all(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap(),
+                0
             );
             assert_eq!(
                 multi_fm_index
@@ -899,11 +1137,27 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .count(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .count(py, &PyString::new(py, "あいう"))
                     .unwrap()
                     .extract::<collections::HashMap<_, _>>(py)
                     .unwrap(),
                 collections::HashMap::<usize, usize>::from([(0, 3), (1, 2), (2, 2)])
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
             );
             assert_eq!(
                 multi_fm_index
@@ -919,6 +1173,14 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .locate(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .locate(py, &PyString::new(py, "あいう"))
                     .unwrap()
                     .extract::<collections::HashMap<_, _>>(py)
@@ -931,11 +1193,35 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .locate(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            let iter_locate = multi_fm_index
+                .iter_locate(py, &PyString::new(py, "あいう"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some((2, 5))
+            );
+            assert_eq!(
+                multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [1, 2, 0]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .startswith(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
             );
             assert_eq!(
                 multi_fm_index
@@ -947,6 +1233,14 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .startswith(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .endswith(py, &PyString::new(py, ""))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
@@ -955,11 +1249,27 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .endswith(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .endswith(py, &PyString::new(py, "あいう"))
                     .unwrap()
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [2, 0]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .endswith(py, &PyString::new(py, "😀😃😀"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
             );
         });
     }
@@ -994,6 +1304,16 @@ mod tests {
             );
             assert!(
                 !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "abc"))
+                    .unwrap()
+            );
+            assert!(
+                !multi_fm_index
+                    .__contains__(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+            );
+            assert!(
+                !multi_fm_index
                     .__contains__(py, &PyString::new(py, "😀😃"))
                     .unwrap()
             );
@@ -1010,6 +1330,18 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .count_all(py, &PyString::new(py, "abc"))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count_all(py, &PyString::new(py, "あいう"))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                multi_fm_index
                     .count_all(py, &PyString::new(py, "😀😃😀"))
                     .unwrap(),
                 4
@@ -1021,6 +1353,22 @@ mod tests {
                     .extract::<collections::HashMap<_, _>>(py)
                     .unwrap(),
                 collections::HashMap::<usize, usize>::from([(0, 7), (1, 9), (2, 6)])
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .count(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, usize>::new()
             );
             assert_eq!(
                 multi_fm_index
@@ -1044,6 +1392,22 @@ mod tests {
             );
             assert_eq!(
                 multi_fm_index
+                    .locate(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .locate(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<collections::HashMap<_, _>>(py)
+                    .unwrap(),
+                collections::HashMap::<usize, Vec<usize>>::new()
+            );
+            assert_eq!(
+                multi_fm_index
                     .locate(py, &PyString::new(py, "😀😃😀"))
                     .unwrap()
                     .extract::<collections::HashMap<_, _>>(py)
@@ -1054,6 +1418,14 @@ mod tests {
                     (2, vec![0])
                 ])
             );
+            let iter_locate = multi_fm_index
+                .iter_locate(py, &PyString::new(py, "😀😃😀"))
+                .unwrap();
+            let py_iter = Py::new(py, iter_locate).unwrap();
+            assert_eq!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
+                Some((2, 0))
+            );
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1061,6 +1433,22 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [1, 2, 0]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .startswith(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .startswith(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
             );
             assert_eq!(
                 multi_fm_index
@@ -1077,6 +1465,22 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [2, 0, 1]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .endswith(py, &PyString::new(py, "abc"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .endswith(py, &PyString::new(py, "あいう"))
+                    .unwrap()
+                    .extract::<Vec<usize>>(py)
+                    .unwrap(),
+                Vec::<usize>::new()
             );
             assert_eq!(
                 multi_fm_index

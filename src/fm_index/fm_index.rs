@@ -28,6 +28,22 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(FMIndex { len, base_fm_index })
     }
 
+    #[inline]
+    pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
+        let pattern = pattern
+            .iter()
+            .map(|&symbol| Some(symbol))
+            .collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+
+        Ok((start, end))
+    }
+
+    #[inline]
+    pub(crate) fn suffix_idx(&self, index: usize) -> PyResult<usize> {
+        self.base_fm_index.suffix_idx(index)
+    }
+
     pub(crate) fn len(&self) -> PyResult<usize> {
         Ok(self.len)
     }
@@ -58,11 +74,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     pub(crate) fn locate(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
-        let pattern = pattern
-            .iter()
-            .map(|&symbol| Some(symbol))
-            .collect::<Vec<_>>();
-        let (start, end) = self.base_fm_index.range_search(&pattern)?;
+        let (start, end) = self.range_search(pattern)?;
         let result = (start..end)
             .map(|index| self.base_fm_index.suffix_idx(index))
             .collect::<PyResult<_>>()?;
