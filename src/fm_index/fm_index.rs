@@ -97,11 +97,11 @@ impl<
     }
 
     pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<bool> {
-        let mut pattern = pattern
+        let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
+            .chain(iter::once(None))
             .collect::<Vec<_>>();
-        pattern.push(None);
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
 
         Ok(start != end)
