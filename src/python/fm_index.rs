@@ -340,9 +340,7 @@ mod tests {
                     .unwrap(),
                 Vec::<usize>::new()
             );
-            let iter_locate = fm_index
-                .iter_locate(py, &PyString::new(py, ""))
-                .unwrap();
+            let iter_locate = fm_index.iter_locate(py, &PyString::new(py, "")).unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
             assert_eq!(
                 IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),

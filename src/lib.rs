@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 mod fm_index;
 mod python;
 mod utils;
