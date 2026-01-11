@@ -122,7 +122,9 @@ fm_index    </h1>
 
 <p>The FM-index is a compressed text index based on the Burrows–Wheeler Transform (BWT).<br />
 It supports fast substring queries whose runtime depends only on the pattern length,<br />
-not on the size of the indexed text.</p>
+not on the size of the indexed text.<br />
+Internally, several independent stages of index construction and query processing<br />
+are optimized using data-parallel execution.  </p>
 
 <h3 id="construction">Construction</h3>
 
@@ -262,6 +264,8 @@ not on the size of the indexed text.</p>
     <a class="headerlink" href="#FMIndex.locate"></a>
     
             <div class="docstring"><p>Locate all starting positions of the pattern in the indexed string.<br />
+This operation may internally leverage parallel execution to efficiently<br />
+enumerate large result sets.<br />
 ⚠️ Order of returned positions is not guaranteed.</p>
 
 <h4 id="complexity">Complexity</h4>
@@ -401,7 +405,9 @@ one by one as an iterator instead of allocating a list.</p>
             <div class="docstring"><p>A multi-document FM-index for fast substring search across multiple strings.  </p>
 
 <p>Internally, all strings are concatenated with separators and indexed as a single FM-index,<br />
-while preserving the ability to map matches back to their original documents.  </p>
+while preserving the ability to map matches back to their original documents.<br />
+Query processing across documents is internally parallelized where applicable,<br />
+making multi-document search efficient in practice.  </p>
 
 <h3 id="construction">Construction</h3>
 
@@ -572,6 +578,7 @@ Returns {doc_index: count}.</p>
     <a class="headerlink" href="#MultiFMIndex.locate"></a>
     
             <div class="docstring"><p>Locate occurrences per document.<br />
+Internally, result enumeration and aggregation may be parallelized.<br />
 ⚠️ Order is not guaranteed.</p>
 
 <h4 id="complexity">Complexity</h4>

@@ -21,6 +21,7 @@ designed for fast substring search on large texts and collections
 
 ## Features:
 - Fast count / locate substring queries
+- Data-parallel optimizations across index construction and queries
 - Supports single text and multiple documents
 
 ## Installation
@@ -58,6 +59,9 @@ fm.count(pattern="GACTGACT")
 ### Locate Substring Positions
 Returns all starting offsets where the pattern occurs.  
 
+To improve throughput for high-frequency patterns,  
+FMIndex applies parallel execution to parts of the locate pipeline.
+
 ```python
 fm.locate(pattern="GACTGACT")
 # [18, 14]
@@ -80,7 +84,10 @@ for pos in fm.iter_locate(pattern="GACTGACT"):
 
 ## MultiFMIndex (Multiple Documents)
 MultiFMIndex extends FMIndex to support multiple documents  
-while keeping query time independent of corpus size
+while keeping query time independent of corpus size  
+
+Query processing is internally parallelized where possible,  
+making multi-document search efficient in practice.  
 
 ### Construction Complexity
 - Time / Space: `O(|''.join(data)| log σ)`  

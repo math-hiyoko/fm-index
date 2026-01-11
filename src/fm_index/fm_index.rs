@@ -2,20 +2,22 @@ use std::{hash, iter, ops};
 
 use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
+use rayon::prelude::*;
 
 use super::base_fm_index::BaseFMIndex;
 use crate::utils::bit_width::BitWidth;
 
 #[derive(Clone)]
 pub(crate) struct FMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     len: usize,
     base_fm_index: BaseFMIndex<Element>,
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    FMIndex<Element>
+impl<
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+> FMIndex<Element>
 {
     pub(crate) fn new(data: &[Element]) -> PyResult<Self> {
         let len = data.len();
@@ -76,6 +78,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     pub(crate) fn locate(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
         let (start, end) = self.range_search(pattern)?;
         let result = (start..end)
+            .into_par_iter()
             .map(|index| self.base_fm_index.suffix_idx(index))
             .collect::<PyResult<_>>()?;
 

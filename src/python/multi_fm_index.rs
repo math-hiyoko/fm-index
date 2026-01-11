@@ -6,6 +6,7 @@ use pyo3::{
     prelude::*,
     types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringData, PyStringMethods},
 };
+use rayon::prelude::*;
 
 use crate::fm_index::multi_fm_index::MultiFMIndex;
 
@@ -65,6 +66,8 @@ enum MultiFMIndexEnum {
 ///
 /// Internally, all strings are concatenated with separators and indexed as a single FM-index,  
 /// while preserving the ability to map matches back to their original documents.  
+/// Query processing across documents is internally parallelized where applicable,  
+/// making multi-document search efficient in practice.  
 ///
 /// ### Construction
 /// #### Time / Space Complexity
@@ -114,7 +117,7 @@ impl PyMultiFMIndex {
             .collect::<PyResult<Vec<_>>>()?;
 
         py.detach(
-            move || match data.iter().max().unwrap_or(&StringData::Ucs1(vec![])) {
+            move || match data.par_iter().max().unwrap_or(&StringData::Ucs1(vec![])) {
                 StringData::Ucs1(_) => {
                     let data = data
                         .into_iter()
@@ -183,7 +186,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U8(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
@@ -193,7 +196,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(format!("MultiFMIndex({:?})", str_list))
@@ -201,7 +204,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         Ok(value
                             .iter()
@@ -244,7 +247,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U8(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
@@ -254,7 +257,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(str_list)
@@ -262,7 +265,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         Ok(value
                             .iter()
@@ -402,6 +405,7 @@ impl PyMultiFMIndex {
     }
 
     /// Locate occurrences per document.  
+    /// Internally, result enumeration and aggregation may be parallelized.  
     /// ⚠️ Order is not guaranteed.
     ///
     /// #### Complexity

@@ -5,6 +5,7 @@ use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
 };
+use rayon::prelude::*;
 
 use super::{bit_vector::BitVector, bit_width::BitWidth};
 
@@ -17,8 +18,9 @@ pub(crate) struct WaveletMatrix<NumberType: PrimInt + Unsigned> {
     zeros: Vec<usize>,
     begin_index: collections::HashMap<NumberType, usize>,
 }
-impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    WaveletMatrix<NumberType>
+impl<
+    NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+> WaveletMatrix<NumberType>
 {
     pub(crate) fn new(data: &[Option<NumberType>]) -> PyResult<Self> {
         let len = data.len();
@@ -33,7 +35,7 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
 
         let mut values_some = values.iter().filter_map(|&value| value).collect::<Vec<_>>();
         let height = values_some
-            .iter()
+            .par_iter()
             .max()
             .unwrap_or(&NumberType::zero())
             .bit_width();
@@ -42,7 +44,7 @@ impl<NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAs
 
         for i in 0..height {
             let bits = values_some
-                .iter()
+                .par_iter()
                 .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
             let num_zeros = bits.iter().filter(|&&bit| !bit).count();

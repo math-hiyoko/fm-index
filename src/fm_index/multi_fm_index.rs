@@ -2,13 +2,14 @@ use std::{collections, hash, iter, ops};
 
 use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
+use rayon::prelude::*;
 
 use super::base_fm_index::{BaseFMIndex, SUFFIX_ARRAY_SAMPLING_RATE};
 use crate::utils::{bit_vector::BitVector, bit_width::BitWidth, suffix_array::suffix_array};
 
 #[derive(Clone)]
 pub(crate) struct MultiFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     doc_len: Vec<usize>,
     base_fm_index: BaseFMIndex<Element>,
@@ -16,8 +17,9 @@ pub(crate) struct MultiFMIndex<
     pos: Vec<(usize, usize)>,                // (doc_id, offset)
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    MultiFMIndex<Element>
+impl<
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+> MultiFMIndex<Element>
 {
     pub(crate) fn new(data: &[Vec<Element>]) -> PyResult<Self> {
         let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
@@ -31,35 +33,44 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             })
             .collect::<Vec<_>>();
 
-        let alphabet_max = data.iter().max().copied().flatten();
+        let alphabet_max = data.par_iter().max().copied().flatten();
         let suffix_idx = suffix_array(&data, alphabet_max);
 
         let base_fm_index = BaseFMIndex::new_with_suffix_array(&data, &suffix_idx)?;
 
-        let data_none_bitvector =
-            BitVector::new(&data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
+        let data_none_bitvector = BitVector::new(
+            &data
+                .par_iter()
+                .map(|value| value.is_none())
+                .collect::<Vec<_>>(),
+        )?;
 
-        let mut doc = collections::HashMap::with_capacity(doc_len.len());
-        for idx in 1..=doc_len.len() {
-            let k = base_fm_index
-                .burrows_wheeler_transform()
-                .select(&None, idx)?
-                .unwrap();
-            let doc_id = data_none_bitvector.rank(true, suffix_idx[k])?;
-            doc.insert(k, doc_id);
-        }
+        let doc = (1..=doc_len.len())
+            .into_par_iter()
+            .map(|idx| {
+                let k = base_fm_index
+                    .burrows_wheeler_transform()
+                    .select(&None, idx)?
+                    .unwrap();
+                let doc_id = data_none_bitvector.rank(true, suffix_idx[k])?;
+                Ok((k, doc_id))
+            })
+            .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
 
-        let mut pos = Vec::with_capacity(data.len() / SUFFIX_ARRAY_SAMPLING_RATE + 1);
-        for &suffix_idx in suffix_idx.iter().step_by(SUFFIX_ARRAY_SAMPLING_RATE) {
-            let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
-            let doc_start_idx = if doc_id == 0 {
-                0
-            } else {
-                data_none_bitvector.select(true, doc_id)?.unwrap() + 1
-            };
-            let offset = suffix_idx - doc_start_idx;
-            pos.push((doc_id, offset));
-        }
+        let pos = suffix_idx
+            .par_iter()
+            .step_by(SUFFIX_ARRAY_SAMPLING_RATE)
+            .map(|&suffix_idx| {
+                let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
+                let doc_start_idx = if doc_id == 0 {
+                    0
+                } else {
+                    data_none_bitvector.select(true, doc_id)?.unwrap() + 1
+                };
+                let offset = suffix_idx - doc_start_idx;
+                Ok((doc_id, offset))
+            })
+            .collect::<PyResult<Vec<(usize, usize)>>>()?;
 
         Ok(MultiFMIndex {
             doc_len,
@@ -109,7 +120,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             .split(|value| value.is_none())
             .map(|slice| slice.iter().filter_map(|&value| value).collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        values = values[..values.len() - 1].to_vec(); // Remove the last empty slice after the final None
+        values.truncate(self.len()?); // Remove the last empty slice after the final None
 
         Ok(values)
     }
@@ -146,14 +157,21 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
 
-        let mut result = collections::HashMap::new();
-        for k in start..end {
-            let (doc_id, _) = self.doc_offset(k)?;
-            result
-                .entry(doc_id)
-                .and_modify(|count| *count += 1usize)
-                .or_insert(1usize);
-        }
+        let result = (start..end)
+            .into_par_iter()
+            .map(|k| {
+                let (doc_id, _) = self.doc_offset(k)?;
+                Ok(doc_id)
+            })
+            .collect::<PyResult<Vec<usize>>>()?
+            .into_iter()
+            .fold(
+                collections::HashMap::new(),
+                |mut acc: collections::HashMap<usize, usize>, doc_id| {
+                    *acc.entry(doc_id).or_insert(0) += 1;
+                    acc
+                },
+            );
 
         Ok(result)
     }
@@ -168,14 +186,21 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
 
-        let mut result = collections::HashMap::new();
-        for k in start..end {
-            let (doc_id, offset) = self.doc_offset(k)?;
-            result
-                .entry(doc_id)
-                .and_modify(|offsets: &mut Vec<usize>| offsets.push(offset))
-                .or_insert(vec![offset]);
-        }
+        let result = (start..end)
+            .into_par_iter()
+            .map(|k| {
+                let (doc_id, offset) = self.doc_offset(k)?;
+                Ok((doc_id, offset))
+            })
+            .collect::<PyResult<Vec<(usize, usize)>>>()?
+            .into_iter()
+            .fold(
+                collections::HashMap::new(),
+                |mut acc: collections::HashMap<usize, Vec<usize>>, (doc_id, offset)| {
+                    acc.entry(doc_id).or_default().push(offset);
+                    acc
+                },
+            );
 
         Ok(result)
     }
@@ -192,11 +217,14 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             let bwt = self.base_fm_index.burrows_wheeler_transform();
             let start_rank = bwt.rank(&None, start)?;
             let end_rank = bwt.rank(&None, end)?;
-            for rank in start_rank + 1..=end_rank {
-                let k = bwt.select(&None, rank)?.unwrap();
-                let doc_id = self.doc[&k];
-                result.push(doc_id);
-            }
+            result = (start_rank + 1..=end_rank)
+                .into_par_iter()
+                .map(|rank| {
+                    let k = bwt.select(&None, rank)?.unwrap();
+                    let doc_id = self.doc[&k];
+                    Ok(doc_id)
+                })
+                .collect::<PyResult<Vec<usize>>>()?;
         }
 
         Ok(result)
@@ -210,11 +238,13 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
 
-        let mut result = Vec::new();
-        for k in start..end {
-            let (doc_id, _) = self.doc_offset(k)?;
-            result.push(doc_id);
-        }
+        let result = (start..end)
+            .into_par_iter()
+            .map(|k| {
+                let (doc_id, _) = self.doc_offset(k)?;
+                Ok(doc_id)
+            })
+            .collect::<PyResult<Vec<usize>>>()?;
 
         Ok(result)
     }

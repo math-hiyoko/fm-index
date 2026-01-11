@@ -2,6 +2,7 @@ use std::{collections, hash, ops};
 
 use num_traits::{PrimInt, Unsigned, Zero};
 use pyo3::PyResult;
+use rayon::prelude::*;
 
 use crate::utils::{
     bit_width::BitWidth, suffix_array::suffix_array, wavelet_matrix::WaveletMatrix,
@@ -11,7 +12,7 @@ pub(super) const SUFFIX_ARRAY_SAMPLING_RATE: usize = 32;
 
 #[derive(Clone)]
 pub(super) struct BaseFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     len: usize,
     zero_suffix_idx: usize,
@@ -20,11 +21,12 @@ pub(super) struct BaseFMIndex<
     burrows_wheeler_transform: WaveletMatrix<Element>,
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    BaseFMIndex<Element>
+impl<
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+> BaseFMIndex<Element>
 {
     pub(super) fn new(data: &[Option<Element>]) -> PyResult<Self> {
-        let alphabet_max = data.iter().max().copied().flatten();
+        let alphabet_max = data.par_iter().max().copied().flatten();
         let suffix_idx = suffix_array(data, alphabet_max);
 
         Self::new_with_suffix_array(data, &suffix_idx)
@@ -37,8 +39,8 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         let len = data.len();
 
         let zero_suffix_idx = suffix_idx
-            .iter()
-            .position(|&idx| idx == 0)
+            .par_iter()
+            .position_any(|&idx| idx == 0)
             .unwrap_or(0usize);
         let suffix_idx_sampled = suffix_idx
             .iter()
@@ -52,11 +54,16 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             counts_less.entry(symbol).or_insert(cumulative_count);
         }
 
-        let mut burrows_wheeler_transform = Vec::with_capacity(len);
-        for &idx in suffix_idx {
-            let prev = if idx == 0 { len - 1 } else { idx - 1 };
-            burrows_wheeler_transform.push(data[prev]);
-        }
+        let burrows_wheeler_transform = suffix_idx
+            .par_iter()
+            .map(|&idx| {
+                if idx == 0 {
+                    data[len - 1]
+                } else {
+                    data[idx - 1]
+                }
+            })
+            .collect::<Vec<_>>();
         let burrows_wheeler_transform = WaveletMatrix::new(&burrows_wheeler_transform)?;
 
         Ok(BaseFMIndex {

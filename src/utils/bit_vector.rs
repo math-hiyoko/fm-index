@@ -6,6 +6,7 @@ use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
 };
+use rayon::prelude::*;
 
 use crate::utils::bit_select::BitSelect;
 
@@ -26,7 +27,7 @@ impl BitVector {
 
         // Pack blocks into BitType words
         let blocks: Vec<BlockType> = bits
-            .chunks(BlockType::BITS as usize)
+            .par_chunks(BlockType::BITS as usize)
             .map(|chunk| {
                 chunk
                     .iter()
@@ -92,15 +93,16 @@ impl BitVector {
 
     #[inline]
     pub(crate) fn values(&self) -> PyResult<Vec<bool>> {
-        Ok(self
+        let mut result: Vec<bool> = self
             .blocks
-            .iter()
-            .flat_map(|&block| {
+            .par_iter()
+            .flat_map_iter(|&block| {
                 (0..BlockType::BITS as usize)
                     .map(move |i| ((block >> i) & BlockType::one()).is_one())
             })
-            .take(self.len)
-            .collect())
+            .collect();
+        result.truncate(self.len);
+        Ok(result)
     }
 
     #[inline]

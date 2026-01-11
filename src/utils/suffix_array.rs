@@ -2,12 +2,15 @@
 use std::{cmp, mem};
 
 use num_traits::{PrimInt, Unsigned};
+use rayon::prelude::*;
 
-fn suffix_array_naive<Element: PrimInt + Unsigned>(data: &[Option<Element>]) -> Vec<usize> {
+fn suffix_array_naive<Element: PrimInt + Unsigned + Send + Sync>(
+    data: &[Option<Element>],
+) -> Vec<usize> {
     let length = data.len();
 
     let mut suffix_idx = (0..length).collect::<Vec<_>>();
-    suffix_idx.sort_by(|&(mut left), &(mut right)| {
+    suffix_idx.par_sort_by(|&(mut left), &(mut right)| {
         if left == right {
             return cmp::Ordering::Equal;
         }
@@ -28,7 +31,9 @@ fn suffix_array_naive<Element: PrimInt + Unsigned>(data: &[Option<Element>]) -> 
     suffix_idx
 }
 
-fn suffix_array_doubling<Element: PrimInt + Unsigned>(data: &[Option<Element>]) -> Vec<usize> {
+fn suffix_array_doubling<Element: PrimInt + Unsigned + Send + Sync>(
+    data: &[Option<Element>],
+) -> Vec<usize> {
     let length = data.len();
 
     let mut suffix_idx = (0..length).collect::<Vec<_>>();
@@ -56,7 +61,7 @@ fn suffix_array_doubling<Element: PrimInt + Unsigned>(data: &[Option<Element>]) 
             }
         };
 
-        suffix_idx.sort_by(compare_suffix);
+        suffix_idx.par_sort_by(compare_suffix);
 
         next_rank[suffix_idx[0]] = 0;
         for i in 1..length {
@@ -76,7 +81,7 @@ fn suffix_array_doubling<Element: PrimInt + Unsigned>(data: &[Option<Element>]) 
     suffix_idx
 }
 
-fn suffix_array_induced_sorting<Element: PrimInt + Unsigned>(
+fn suffix_array_induced_sorting<Element: PrimInt + Unsigned + Send + Sync>(
     data: &[Option<Element>],
     alphabet_max: Option<Element>,
 ) -> Vec<usize> {
@@ -102,10 +107,10 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned>(
             Some(value) => value.to_usize().unwrap() + 1,
             None => 0,
         };
-        if !is_s_type[i] {
-            bucket_s_start[index] += 1;
-        } else {
+        if is_s_type[i] {
             bucket_l_start[index + 1] += 1;
+        } else {
+            bucket_s_start[index] += 1;
         }
     }
     for i in 0..=alphabet_max {
@@ -117,9 +122,9 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned>(
 
     // suffix array's origin is +1
     let induced_sort = |suffix_idx: &mut [usize], lms_positions: &[usize]| {
-        for elem in suffix_idx.iter_mut() {
+        suffix_idx.iter_mut().for_each(|elem| {
             *elem = 0;
-        }
+        });
         let mut bucket_cursor = bucket_s_start.clone();
         for &lms_pos in lms_positions {
             if lms_pos == length {
@@ -238,7 +243,7 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned>(
     suffix_idx
 }
 
-pub(crate) fn suffix_array<Element: PrimInt + Unsigned>(
+pub(crate) fn suffix_array<Element: PrimInt + Unsigned + Send + Sync>(
     data: &[Option<Element>],
     alphabet_max: Option<Element>,
 ) -> Vec<usize> {

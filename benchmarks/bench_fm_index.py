@@ -35,19 +35,19 @@ class BenchFMIndex:
         benchmark(random_fm_index.item)
 
     def bench_contains(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:50]
+        pattern = random_fm_index.item()[:5]
         benchmark(random_fm_index.contains, pattern)
 
     def bench_count(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:50]
+        pattern = random_fm_index.item()[:5]
         benchmark(random_fm_index.count, pattern)
 
     def bench_locate(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:50]
+        pattern = random_fm_index.item()[:5]
         benchmark(random_fm_index.locate, pattern)
 
     def bench_iter_locate(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:50]
+        pattern = random_fm_index.item()[:5]
         benchmark(random_fm_index.iter_locate, pattern)
 
     def bench_startswith(self, benchmark, random_fm_index):

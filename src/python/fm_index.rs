@@ -6,6 +6,7 @@ use pyo3::{
     prelude::*,
     types::{PyList, PyString, PyStringData, PyStringMethods},
 };
+use rayon::prelude::*;
 
 use crate::fm_index::fm_index::FMIndex;
 
@@ -65,7 +66,9 @@ enum FMIndexEnum {
 ///
 /// The FM-index is a compressed text index based on the Burrows–Wheeler Transform (BWT).  
 /// It supports fast substring queries whose runtime depends only on the pattern length,  
-/// not on the size of the indexed text.
+/// not on the size of the indexed text.  
+/// Internally, several independent stages of index construction and query processing  
+/// are optimized using data-parallel execution.  
 ///
 /// ### Construction
 /// #### Time / Space Complexity
@@ -129,7 +132,7 @@ impl PyFMIndex {
                 "FMIndex(\"{:}\")",
                 fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|&c| char::from_u32(c).unwrap_or('\u{FFFD}'))
                     .collect::<String>()
             )),
@@ -178,7 +181,7 @@ impl PyFMIndex {
                 let str = py.detach(move || -> PyResult<String> {
                     let values = fm_index.values()?;
                     Ok(values
-                        .iter()
+                        .par_iter()
                         .map(|&c| char::from_u32(c).unwrap_or('\u{FFFD}'))
                         .collect::<String>())
                 })?;
@@ -270,6 +273,8 @@ impl PyFMIndex {
     }
 
     /// Locate all starting positions of the pattern in the indexed string.  
+    /// This operation may internally leverage parallel execution to efficiently  
+    /// enumerate large result sets.  
     /// ⚠️ Order of returned positions is not guaranteed.
     ///
     /// #### Complexity
