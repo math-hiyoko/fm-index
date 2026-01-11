@@ -1,29 +1,23 @@
-use std::{collections, hash, ops};
+use std::collections;
 
-use num_traits::{PrimInt, Unsigned, Zero};
+use num_traits::Zero;
 use pyo3::PyResult;
 
-use crate::utils::{
-    bit_width::BitWidth, suffix_array::suffix_array, wavelet_matrix::WaveletMatrix,
-};
+use crate::utils::{suffix_array::suffix_array, wavelet_matrix::WaveletMatrix};
 
 pub(super) const SUFFIX_ARRAY_SAMPLING_RATE: usize = 32;
 
 #[derive(Clone)]
-pub(super) struct BaseFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
-> {
+pub(super) struct BaseFMIndex {
     len: usize,
     zero_suffix_idx: usize,
     suffix_idx_sampled: Vec<usize>,
-    counts_less: collections::HashMap<Option<Element>, usize>,
-    burrows_wheeler_transform: WaveletMatrix<Element>,
+    counts_less: collections::HashMap<Option<u8>, usize>,
+    burrows_wheeler_transform: WaveletMatrix,
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    BaseFMIndex<Element>
-{
-    pub(super) fn new(data: &[Option<Element>]) -> PyResult<Self> {
+impl BaseFMIndex {
+    pub(super) fn new(data: &[Option<u8>]) -> PyResult<Self> {
         let alphabet_max = data.iter().max().copied().flatten();
         let suffix_idx = suffix_array(data, alphabet_max);
 
@@ -31,7 +25,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     pub(super) fn new_with_suffix_array(
-        data: &[Option<Element>],
+        data: &[Option<u8>],
         suffix_idx: &[usize],
     ) -> PyResult<Self> {
         let len = data.len();
@@ -110,12 +104,12 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     #[inline]
-    pub(super) fn burrows_wheeler_transform(&self) -> &WaveletMatrix<Element> {
+    pub(super) fn burrows_wheeler_transform(&self) -> &WaveletMatrix {
         &self.burrows_wheeler_transform
     }
 
     #[inline]
-    pub(super) fn values(&self) -> PyResult<Vec<Option<Element>>> {
+    pub(super) fn values(&self) -> PyResult<Vec<Option<u8>>> {
         let mut values = vec![None; self.len];
 
         if self.len > 0 {
@@ -141,7 +135,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     #[inline]
-    pub(super) fn range_search(&self, pattern: &[Option<Element>]) -> PyResult<(usize, usize)> {
+    pub(super) fn range_search(&self, pattern: &[Option<u8>]) -> PyResult<(usize, usize)> {
         let (mut start, mut end) = (0usize, self.len);
         for symbol in pattern.iter().rev() {
             let count_less = match self.counts_less.get(symbol) {
@@ -201,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_base_fm_index_u8() {
+    fn test_base_fm_index() {
         let data = b"mississippi"
             .to_vec()
             .into_iter()
@@ -218,28 +212,6 @@ mod tests {
         assert_eq!(
             fm_index.range_search(&[Some(b's'), Some(b'i')]).unwrap(),
             (8, 10),
-        );
-    }
-
-    #[test]
-    fn test_base_fm_index_u32() {
-        let data = "にわにはにわにわとりがいる"
-            .chars()
-            .map(|c| Some(c as u32))
-            .chain(iter::once(None))
-            .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(&data).unwrap();
-        let suffix_idx = suffix_array(&data, Some(u32::MAX));
-
-        for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
-            assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
-        }
-        assert_eq!(fm_index.values().unwrap(), data);
-        assert_eq!(
-            fm_index
-                .range_search(&[Some('に' as u32), Some('わ' as u32)])
-                .unwrap(),
-            (5, 8),
         );
     }
 }

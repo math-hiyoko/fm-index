@@ -1,35 +1,27 @@
-use std::{hash, iter, ops};
+use std::iter;
 
-use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
 
 use super::base_fm_index::BaseFMIndex;
-use crate::utils::bit_width::BitWidth;
 
 #[derive(Clone)]
-pub(crate) struct FMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
-> {
-    len: usize,
-    base_fm_index: BaseFMIndex<Element>,
+pub(crate) struct FMIndex {
+    base_fm_index: BaseFMIndex,
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    FMIndex<Element>
-{
-    pub(crate) fn new(data: &[Element]) -> PyResult<Self> {
-        let len = data.len();
+impl FMIndex {
+    pub(crate) fn new(data: &[u8]) -> PyResult<Self> {
         let data = data
             .iter()
             .map(|&symbol| Some(symbol))
             .chain(iter::once(None))
             .collect::<Vec<_>>();
         let base_fm_index = BaseFMIndex::new(&data)?;
-        Ok(FMIndex { len, base_fm_index })
+        Ok(FMIndex { base_fm_index })
     }
 
     #[inline]
-    pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
+    pub(crate) fn range_search(&self, pattern: &[u8]) -> PyResult<(usize, usize)> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -44,11 +36,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         self.base_fm_index.suffix_idx(index)
     }
 
-    pub(crate) fn len(&self) -> PyResult<usize> {
-        Ok(self.len)
-    }
-
-    pub(crate) fn values(&self) -> PyResult<Vec<Element>> {
+    pub(crate) fn values(&self) -> PyResult<Vec<u8>> {
         let values = self
             .base_fm_index
             .values()?
@@ -59,11 +47,11 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(values)
     }
 
-    pub(crate) fn contains(&self, pattern: &[Element]) -> PyResult<bool> {
+    pub(crate) fn contains(&self, pattern: &[u8]) -> PyResult<bool> {
         Ok(self.count(pattern)? > 0)
     }
 
-    pub(crate) fn count(&self, pattern: &[Element]) -> PyResult<usize> {
+    pub(crate) fn count(&self, pattern: &[u8]) -> PyResult<usize> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -73,7 +61,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(end - start)
     }
 
-    pub(crate) fn locate(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
+    pub(crate) fn locate(&self, pattern: &[u8]) -> PyResult<Vec<usize>> {
         let (start, end) = self.range_search(pattern)?;
         let result = (start..end)
             .map(|index| self.base_fm_index.suffix_idx(index))
@@ -82,7 +70,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(result)
     }
 
-    pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<bool> {
+    pub(crate) fn starts_with(&self, pattern: &[u8]) -> PyResult<bool> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -93,7 +81,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
             && self.base_fm_index.zero_suffix_idx() < end)
     }
 
-    pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<bool> {
+    pub(crate) fn ends_with(&self, pattern: &[u8]) -> PyResult<bool> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -116,7 +104,6 @@ mod tests {
         let data = [];
         let fm_index = FMIndex::new(&data).unwrap();
 
-        assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
         assert!(fm_index.contains(&[]).unwrap());
         assert!(!fm_index.contains(b"a").unwrap());
@@ -135,7 +122,6 @@ mod tests {
         let data = b"aaaaaaaaaa";
         let fm_index = FMIndex::new(data).unwrap();
 
-        assert_eq!(fm_index.len().unwrap(), 10);
         assert_eq!(fm_index.values().unwrap(), data);
         assert!(fm_index.contains(&[]).unwrap());
         assert!(fm_index.contains(b"a").unwrap());
@@ -153,11 +139,10 @@ mod tests {
     }
 
     #[test]
-    fn test_fm_index_u8() {
+    fn test_fm_index() {
         let data = b"mississippi";
         let fm_index = FMIndex::new(data).unwrap();
 
-        assert_eq!(fm_index.len().unwrap(), 11);
         assert_eq!(fm_index.values().unwrap(), data);
         assert!(fm_index.contains(&[]).unwrap());
         assert!(fm_index.contains(b"is").unwrap());
@@ -169,30 +154,5 @@ mod tests {
         assert!(fm_index.ends_with(&[]).unwrap());
         assert!(fm_index.ends_with(b"pi").unwrap());
         assert!(!fm_index.ends_with(b"ip").unwrap());
-    }
-
-    #[test]
-    fn test_fm_index_u32() {
-        let data = "にわにはにわにわとりがいる"
-            .chars()
-            .map(|c| c as u32)
-            .collect::<Vec<_>>();
-        let fm_index = FMIndex::new(&data).unwrap();
-
-        assert_eq!(fm_index.len().unwrap(), 13);
-        assert_eq!(fm_index.values().unwrap(), data);
-        assert!(fm_index.contains(&[]).unwrap());
-        assert!(fm_index.contains(&['に' as u32, 'わ' as u32]).unwrap());
-        assert_eq!(fm_index.count(&['に' as u32, 'わ' as u32]).unwrap(), 3);
-        assert_eq!(
-            fm_index.locate(&['に' as u32, 'わ' as u32]).unwrap(),
-            [6, 0, 4]
-        );
-        assert!(fm_index.starts_with(&[]).unwrap());
-        assert!(fm_index.starts_with(&['に' as u32, 'わ' as u32]).unwrap());
-        assert!(!fm_index.starts_with(&['い' as u32, 'る' as u32]).unwrap());
-        assert!(fm_index.ends_with(&[]).unwrap());
-        assert!(fm_index.ends_with(&['い' as u32, 'る' as u32]).unwrap());
-        assert!(!fm_index.ends_with(&['に' as u32, 'わ' as u32]).unwrap());
     }
 }

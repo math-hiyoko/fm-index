@@ -1,27 +1,20 @@
-use std::{collections, hash, iter, ops};
+use std::{collections, iter};
 
-use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
 
 use super::base_fm_index::{BaseFMIndex, SUFFIX_ARRAY_SAMPLING_RATE};
-use crate::utils::{bit_vector::BitVector, bit_width::BitWidth, suffix_array::suffix_array};
+use crate::utils::{bit_vector::BitVector, suffix_array::suffix_array};
 
 #[derive(Clone)]
-pub(crate) struct MultiFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
-> {
-    doc_len: Vec<usize>,
-    base_fm_index: BaseFMIndex<Element>,
+pub(crate) struct MultiFMIndex {
+    base_fm_index: BaseFMIndex,
     doc: collections::HashMap<usize, usize>, // suffix array index -> doc_id
     pos: Vec<(usize, usize)>,                // (doc_id, offset)
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    MultiFMIndex<Element>
-{
-    pub(crate) fn new(data: &[Vec<Element>]) -> PyResult<Self> {
-        let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
-
+impl MultiFMIndex {
+    pub(crate) fn new(data: &[Vec<u8>]) -> PyResult<Self> {
+        let num_docs = data.len();
         let data = data
             .iter()
             .flat_map(|doc| {
@@ -39,8 +32,8 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         let data_none_bitvector =
             BitVector::new(&data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
 
-        let mut doc = collections::HashMap::with_capacity(doc_len.len());
-        for idx in 1..=doc_len.len() {
+        let mut doc = collections::HashMap::with_capacity(num_docs);
+        for idx in 1..=num_docs {
             let k = base_fm_index
                 .burrows_wheeler_transform()
                 .select(&None, idx)?
@@ -62,7 +55,6 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         }
 
         Ok(MultiFMIndex {
-            doc_len,
             base_fm_index,
             doc,
             pos,
@@ -70,7 +62,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     #[inline]
-    pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
+    pub(crate) fn range_search(&self, pattern: &[u8]) -> PyResult<(usize, usize)> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -98,11 +90,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         }
     }
 
-    pub(crate) fn len(&self) -> PyResult<usize> {
-        Ok(self.doc_len.len())
-    }
-
-    pub(crate) fn values(&self) -> PyResult<Vec<Vec<Element>>> {
+    pub(crate) fn values(&self) -> PyResult<Vec<Vec<u8>>> {
         let mut values = self
             .base_fm_index
             .values()?
@@ -114,7 +102,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(values)
     }
 
-    pub(crate) fn contains(&self, pattern: &[Element]) -> PyResult<bool> {
+    pub(crate) fn contains(&self, pattern: &[u8]) -> PyResult<bool> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -126,7 +114,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(bwt.rank(&None, end)? != bwt.rank(&None, start)?)
     }
 
-    pub(crate) fn count_all(&self, pattern: &[Element]) -> PyResult<usize> {
+    pub(crate) fn count_all(&self, pattern: &[u8]) -> PyResult<usize> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -136,10 +124,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(end - start)
     }
 
-    pub(crate) fn count(
-        &self,
-        pattern: &[Element],
-    ) -> PyResult<collections::HashMap<usize, usize>> {
+    pub(crate) fn count(&self, pattern: &[u8]) -> PyResult<collections::HashMap<usize, usize>> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -160,7 +145,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
     pub(crate) fn locate(
         &self,
-        pattern: &[Element],
+        pattern: &[u8],
     ) -> PyResult<collections::HashMap<usize, Vec<usize>>> {
         let pattern = pattern
             .iter()
@@ -180,7 +165,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(result)
     }
 
-    pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
+    pub(crate) fn starts_with(&self, pattern: &[u8]) -> PyResult<Vec<usize>> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -202,7 +187,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         Ok(result)
     }
 
-    pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
+    pub(crate) fn ends_with(&self, pattern: &[u8]) -> PyResult<Vec<usize>> {
         let pattern = pattern
             .iter()
             .map(|&symbol| Some(symbol))
@@ -231,7 +216,6 @@ mod tests {
         let data = [];
         let fm_index = MultiFMIndex::new(&data).unwrap();
 
-        assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
         assert!(!fm_index.contains(&[]).unwrap());
         assert!(!fm_index.contains(b"a").unwrap());
@@ -252,7 +236,6 @@ mod tests {
         let data = [vec![], vec![], vec![]];
         let fm_index = MultiFMIndex::new(&data).unwrap();
 
-        assert_eq!(fm_index.len().unwrap(), 3);
         assert_eq!(
             fm_index.values().unwrap(),
             [vec![] as Vec<u8>, vec![] as Vec<u8>, vec![] as Vec<u8>]
@@ -287,7 +270,6 @@ mod tests {
         ];
         let fm_index = MultiFMIndex::new(&data).unwrap();
 
-        assert_eq!(fm_index.len().unwrap(), 4);
         assert_eq!(fm_index.values().unwrap(), data);
         assert!(fm_index.contains(&[]).unwrap());
         assert!(!fm_index.contains(b"a").unwrap());
@@ -326,11 +308,10 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_fm_index_u8() {
+    fn test_multi_fm_index() {
         let data = [b"banana".to_vec(), b"bandana".to_vec(), b"anaba".to_vec()];
         let fm_index = MultiFMIndex::new(&data).unwrap();
 
-        assert_eq!(fm_index.len().unwrap(), 3);
         assert_eq!(fm_index.values().unwrap(), data);
         assert!(!fm_index.contains(&[]).unwrap());
         assert!(!fm_index.contains(b"ana").unwrap());
