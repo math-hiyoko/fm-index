@@ -38,7 +38,7 @@ fn suffix_array_doubling<Element: PrimInt + Unsigned + Send + Sync>(
 
     let mut suffix_idx = (0..length).collect::<Vec<_>>();
     let mut rank = data
-        .par_iter()
+        .iter()
         .map(|&symbol| match symbol {
             Some(value) => value.to_usize().unwrap() + 1,
             None => 0,
@@ -122,7 +122,7 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned + Send + Sync>(
 
     // suffix array's origin is +1
     let induced_sort = |suffix_idx: &mut [usize], lms_positions: &[usize]| {
-        suffix_idx.par_iter_mut().for_each(|elem| {
+        suffix_idx.iter_mut().for_each(|elem| {
             *elem = 0;
         });
         let mut bucket_cursor = bucket_s_start.clone();
@@ -189,7 +189,7 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned + Send + Sync>(
 
     if num_lms > 0 {
         let mut sorted_lms_positions = suffix_idx
-            .par_iter()
+            .iter()
             .filter_map(|&sa_value| {
                 if lms_index[sa_value - 1] > 0 {
                     Some(sa_value - 1)
@@ -231,7 +231,7 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned + Send + Sync>(
         }
 
         let reduced_suffix_array = suffix_array(
-            &reduced_data.into_par_iter().map(Some).collect::<Vec<_>>(),
+            &reduced_data.into_iter().map(Some).collect::<Vec<_>>(),
             Some(reduced_alphabet_max),
         );
         for i in 0..num_lms {
@@ -239,7 +239,7 @@ fn suffix_array_induced_sorting<Element: PrimInt + Unsigned + Send + Sync>(
         }
         induced_sort(&mut suffix_idx, &sorted_lms_positions);
     };
-    suffix_idx.par_iter_mut().for_each(|x| *x -= 1);
+    suffix_idx.iter_mut().for_each(|x| *x -= 1);
     suffix_idx
 }
 

@@ -22,11 +22,11 @@ impl<
 > MultiFMIndex<Element>
 {
     pub(crate) fn new(data: &[Vec<Element>]) -> PyResult<Self> {
-        let doc_len = data.par_iter().map(|data| data.len()).collect::<Vec<_>>();
+        let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
 
         let data = data
-            .par_iter()
-            .flat_map_iter(|doc| {
+            .iter()
+            .flat_map(|doc| {
                 doc.iter()
                     .map(|&symbol| Some(symbol))
                     .chain(iter::once(None))
@@ -83,7 +83,7 @@ impl<
     #[inline]
     pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -118,12 +118,7 @@ impl<
             .base_fm_index
             .values()?
             .split(|value| value.is_none())
-            .map(|slice| {
-                slice
-                    .par_iter()
-                    .filter_map(|&value| value)
-                    .collect::<Vec<_>>()
-            })
+            .map(|slice| slice.iter().filter_map(|&value| value).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         values.truncate(self.len()?); // Remove the last empty slice after the final None
 
@@ -132,7 +127,7 @@ impl<
 
     pub(crate) fn contains(&self, pattern: &[Element]) -> PyResult<bool> {
         let mut pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         pattern.push(None);
@@ -144,7 +139,7 @@ impl<
 
     pub(crate) fn count_all(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -157,7 +152,7 @@ impl<
         pattern: &[Element],
     ) -> PyResult<collections::HashMap<usize, usize>> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -186,7 +181,7 @@ impl<
         pattern: &[Element],
     ) -> PyResult<collections::HashMap<usize, Vec<usize>>> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -212,7 +207,7 @@ impl<
 
     pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -237,7 +232,7 @@ impl<
 
     pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
         let mut pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         pattern.push(None);

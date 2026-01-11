@@ -28,15 +28,12 @@ impl<
         let values = data.to_owned();
         let is_none = BitVector::new(
             &values
-                .par_iter()
+                .iter()
                 .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
         )?;
 
-        let mut values_some = values
-            .par_iter()
-            .filter_map(|&value| value)
-            .collect::<Vec<_>>();
+        let mut values_some = values.iter().filter_map(|&value| value).collect::<Vec<_>>();
         let height = values_some
             .par_iter()
             .max()
@@ -50,7 +47,7 @@ impl<
                 .par_iter()
                 .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
-            let num_zeros = bits.par_iter().filter(|&&bit| !bit).count();
+            let num_zeros = bits.iter().filter(|&&bit| !bit).count();
             layers.push(BitVector::new(&bits)?);
             zeros.push(num_zeros);
 

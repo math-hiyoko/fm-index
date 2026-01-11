@@ -43,7 +43,7 @@ impl<
             .position_any(|&idx| idx == 0)
             .unwrap_or(0usize);
         let suffix_idx_sampled = suffix_idx
-            .par_iter()
+            .iter()
             .step_by(SUFFIX_ARRAY_SAMPLING_RATE)
             .copied()
             .collect::<Vec<_>>();

@@ -1,4 +1,4 @@
-use std::{hash, ops};
+use std::{hash, iter, ops};
 
 use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
@@ -21,11 +21,11 @@ impl<
 {
     pub(crate) fn new(data: &[Element]) -> PyResult<Self> {
         let len = data.len();
-        let mut data = data
-            .par_iter()
+        let data = data
+            .iter()
             .map(|&symbol| Some(symbol))
+            .chain(iter::once(None))
             .collect::<Vec<_>>();
-        data.push(None);
         let base_fm_index = BaseFMIndex::new(&data)?;
         Ok(FMIndex { len, base_fm_index })
     }
@@ -33,7 +33,7 @@ impl<
     #[inline]
     pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -54,7 +54,7 @@ impl<
         let values = self
             .base_fm_index
             .values()?
-            .par_iter()
+            .iter()
             .filter_map(|&value| value)
             .collect::<Vec<_>>();
 
@@ -67,7 +67,7 @@ impl<
 
     pub(crate) fn count(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -87,7 +87,7 @@ impl<
 
     pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<bool> {
         let pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -98,7 +98,7 @@ impl<
 
     pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<bool> {
         let mut pattern = pattern
-            .par_iter()
+            .iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         pattern.push(None);
