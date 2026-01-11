@@ -1,29 +1,31 @@
-use std::{hash, iter, ops};
+use std::{hash, ops};
 
 use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
+use rayon::prelude::*;
 
 use super::base_fm_index::BaseFMIndex;
 use crate::utils::bit_width::BitWidth;
 
 #[derive(Clone)]
 pub(crate) struct FMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth,
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     len: usize,
     base_fm_index: BaseFMIndex<Element>,
 }
 
-impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth>
-    FMIndex<Element>
+impl<
+    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+> FMIndex<Element>
 {
     pub(crate) fn new(data: &[Element]) -> PyResult<Self> {
         let len = data.len();
-        let data = data
-            .iter()
+        let mut data = data
+            .par_iter()
             .map(|&symbol| Some(symbol))
-            .chain(iter::once(None))
             .collect::<Vec<_>>();
+        data.push(None);
         let base_fm_index = BaseFMIndex::new(&data)?;
         Ok(FMIndex { len, base_fm_index })
     }
@@ -31,7 +33,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     #[inline]
     pub(crate) fn range_search(&self, pattern: &[Element]) -> PyResult<(usize, usize)> {
         let pattern = pattern
-            .iter()
+            .par_iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -52,7 +54,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
         let values = self
             .base_fm_index
             .values()?
-            .iter()
+            .par_iter()
             .filter_map(|&value| value)
             .collect::<Vec<_>>();
 
@@ -65,7 +67,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
     pub(crate) fn count(&self, pattern: &[Element]) -> PyResult<usize> {
         let pattern = pattern
-            .iter()
+            .par_iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -76,6 +78,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     pub(crate) fn locate(&self, pattern: &[Element]) -> PyResult<Vec<usize>> {
         let (start, end) = self.range_search(pattern)?;
         let result = (start..end)
+            .into_par_iter()
             .map(|index| self.base_fm_index.suffix_idx(index))
             .collect::<PyResult<_>>()?;
 
@@ -84,7 +87,7 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
 
     pub(crate) fn starts_with(&self, pattern: &[Element]) -> PyResult<bool> {
         let pattern = pattern
-            .iter()
+            .par_iter()
             .map(|&symbol| Some(symbol))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
@@ -94,11 +97,11 @@ impl<Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssig
     }
 
     pub(crate) fn ends_with(&self, pattern: &[Element]) -> PyResult<bool> {
-        let pattern = pattern
-            .iter()
+        let mut pattern = pattern
+            .par_iter()
             .map(|&symbol| Some(symbol))
-            .chain(iter::once(None))
             .collect::<Vec<_>>();
+        pattern.push(None);
         let (start, end) = self.base_fm_index.range_search(&pattern)?;
 
         Ok(start != end)

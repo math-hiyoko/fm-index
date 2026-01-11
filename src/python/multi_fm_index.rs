@@ -6,6 +6,7 @@ use pyo3::{
     prelude::*,
     types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringData, PyStringMethods},
 };
+use rayon::prelude::*;
 
 use crate::fm_index::multi_fm_index::MultiFMIndex;
 
@@ -65,6 +66,8 @@ enum MultiFMIndexEnum {
 ///
 /// Internally, all strings are concatenated with separators and indexed as a single FM-index,  
 /// while preserving the ability to map matches back to their original documents.  
+/// Query processing across documents is internally parallelized where applicable,  
+/// making multi-document search efficient in practice.  
 ///
 /// ### Construction
 /// #### Time / Space Complexity
@@ -114,10 +117,10 @@ impl PyMultiFMIndex {
             .collect::<PyResult<Vec<_>>>()?;
 
         py.detach(
-            move || match data.iter().max().unwrap_or(&StringData::Ucs1(vec![])) {
+            move || match data.par_iter().max().unwrap_or(&StringData::Ucs1(vec![])) {
                 StringData::Ucs1(_) => {
                     let data = data
-                        .into_iter()
+                        .into_par_iter()
                         .map(|item| match item {
                             StringData::Ucs1(data) => data,
                             _ => unreachable!(),
@@ -130,10 +133,10 @@ impl PyMultiFMIndex {
                 }
                 StringData::Ucs2(_) => {
                     let data = data
-                        .into_iter()
+                        .into_par_iter()
                         .map(|item| match item {
                             StringData::Ucs1(data) => {
-                                data.iter().map(|&c| c as u16).collect::<Vec<_>>()
+                                data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
                             }
                             StringData::Ucs2(data) => data,
                             _ => unreachable!(),
@@ -146,13 +149,13 @@ impl PyMultiFMIndex {
                 }
                 StringData::Ucs4(_) => {
                     let data = data
-                        .into_iter()
+                        .into_par_iter()
                         .map(|item| match item {
                             StringData::Ucs1(data) => {
-                                data.iter().map(|&c| c as u32).collect::<Vec<_>>()
+                                data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
                             }
                             StringData::Ucs2(data) => {
-                                data.iter().map(|&c| c as u32).collect::<Vec<_>>()
+                                data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
                             }
                             StringData::Ucs4(data) => data,
                         })
@@ -183,7 +186,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U8(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
@@ -193,7 +196,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(format!("MultiFMIndex({:?})", str_list))
@@ -201,7 +204,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         Ok(value
                             .iter()
@@ -244,7 +247,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U8(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         String::from_utf8(value.to_vec()).map_err(PyUnicodeDecodeError::new_err)
                     })
@@ -254,7 +257,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| String::from_utf16(value).map_err(PyUnicodeDecodeError::new_err))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(str_list)
@@ -262,7 +265,7 @@ impl PyMultiFMIndex {
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let str_list = multi_fm_index
                     .values()?
-                    .iter()
+                    .par_iter()
                     .map(|value| {
                         Ok(value
                             .iter()
@@ -300,7 +303,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(false),
                 };
@@ -308,8 +313,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 multi_fm_index.contains(pattern)
@@ -341,7 +350,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(0usize),
                 };
@@ -349,8 +360,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 multi_fm_index.count_all(pattern)
@@ -383,7 +398,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(collections::HashMap::new()),
                 };
@@ -391,8 +408,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 multi_fm_index.count(pattern)
@@ -402,6 +423,7 @@ impl PyMultiFMIndex {
     }
 
     /// Locate occurrences per document.  
+    /// Internally, result enumeration and aggregation may be parallelized.  
     /// ⚠️ Order is not guaranteed.
     ///
     /// #### Complexity
@@ -426,7 +448,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(collections::HashMap::new()),
                 };
@@ -434,8 +458,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 Ok(multi_fm_index.locate(pattern)?)
@@ -488,7 +516,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => {
                         return Ok(IterLocate::new(
@@ -507,8 +537,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let pattern = match pattern {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 let (start, end) = multi_fm_index.range_search(pattern)?;
@@ -545,7 +579,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let prefix = match prefix {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(vec![]),
                 };
@@ -553,8 +589,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let prefix = match prefix {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 multi_fm_index.starts_with(prefix)
@@ -587,7 +627,9 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U16(multi_fm_index) => {
                 let suffix = match suffix {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u16).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs2(data) => data,
                     _ => return Ok(vec![]),
                 };
@@ -595,8 +637,12 @@ impl PyMultiFMIndex {
             }
             MultiFMIndexEnum::U32(multi_fm_index) => {
                 let suffix = match suffix {
-                    PyStringData::Ucs1(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => &data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
+                    PyStringData::Ucs1(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
+                    PyStringData::Ucs2(data) => {
+                        &data.par_iter().map(|&c| c as u32).collect::<Vec<_>>()
+                    }
                     PyStringData::Ucs4(data) => data,
                 };
                 multi_fm_index.ends_with(suffix)
