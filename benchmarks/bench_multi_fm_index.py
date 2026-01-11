@@ -14,7 +14,12 @@ def random_data(size: tuple[int, int], ucs: Literal["ucs1", "ucs2", "ucs4"]) -> 
     elif ucs == "ucs2":
         codepoints = rng.integers(0x20, 0xD800, size=size, dtype=np.uint16)
     elif ucs == "ucs4":
-        codepoints = rng.integers(0x20, 0x110000, size=size, dtype=np.uint32)
+        n1 = size // 2
+        n2 = size - n1
+        a = rng.integers(0x20, 0xD800, size=n1, dtype=np.uint32)
+        b = rng.integers(0xE000, 0x110000, size=n2, dtype=np.uint32)
+        codepoints = np.concatenate([a, b])
+        rng.shuffle(codepoints)
     else:
         raise ValueError(f"Unknown ucs: {ucs}")
     return ["".join(map(chr, codepoints)) for codepoints in codepoints]
