@@ -132,6 +132,10 @@ impl<
                 self.suffix_idx_sampled[0] - 1
             };
             let mut value_idx = 0usize;
+            let lf_mapping = (0..self.len)
+                .into_par_iter()
+                .map(|index| self.lf_mapping(index))
+                .collect::<PyResult<Vec<_>>>()?;
             let bwt_values = self.burrows_wheeler_transform.values()?;
             for _ in 0..self.len {
                 values[index] = bwt_values[value_idx];
@@ -140,7 +144,7 @@ impl<
                 } else {
                     index - 1
                 };
-                value_idx = self.lf_mapping(value_idx)?;
+                value_idx = lf_mapping[value_idx];
             }
         }
 
