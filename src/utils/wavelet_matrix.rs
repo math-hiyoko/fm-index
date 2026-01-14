@@ -47,7 +47,7 @@ impl<
                 .par_iter()
                 .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
-            let num_zeros = layer_bits.iter().filter(|&&bit| !bit).count();
+            let num_zeros = layer_bits.par_iter().filter(|&&bit| !bit).count();
             zeros.push(num_zeros);
             bits.push(layer_bits.clone());
 
