@@ -27,7 +27,7 @@ impl BitVector {
 
         // Pack blocks into BitType words
         let blocks: Vec<BlockType> = bits
-            .par_chunks(BlockType::BITS as usize)
+            .chunks(BlockType::BITS as usize)
             .map(|chunk| {
                 chunk
                     .iter()

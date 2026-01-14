@@ -39,22 +39,20 @@ impl<
             .max()
             .unwrap_or(&NumberType::zero())
             .bit_width();
-        let mut layers: Vec<BitVector> = Vec::with_capacity(height);
-        let mut zeros: Vec<usize> = Vec::with_capacity(height);
 
+        let mut zeros = Vec::with_capacity(height);
+        let mut bits = Vec::with_capacity(height);
         for i in 0..height {
-            let bits = values_some
+            let layer_bits = values_some
                 .par_iter()
                 .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
-            let num_zeros = bits.iter().filter(|&&bit| !bit).count();
-            layers.push(BitVector::new(&bits)?);
-            zeros.push(num_zeros);
+            let num_zeros = layer_bits.par_iter().filter(|&&bit| !bit).count();
 
             let mut next_values = vec![NumberType::zero(); values_some.len()];
             let mut zero_index = 0usize;
             let mut one_index = num_zeros;
-            for (bit, value) in iter::zip(bits, values_some) {
+            for (&bit, value) in iter::zip(&layer_bits, values_some) {
                 if bit {
                     next_values[one_index] = value;
                     one_index += 1;
@@ -63,13 +61,24 @@ impl<
                     zero_index += 1;
                 }
             }
+
+            zeros.push(num_zeros);
+            bits.push(layer_bits);
             values_some = next_values;
         }
 
+        let layers = bits
+            .into_par_iter()
+            .map(|layer_bits| BitVector::new(&layer_bits))
+            .collect::<PyResult<Vec<_>>>()?;
+
         let mut begin_index = collections::HashMap::new();
-        values_some.iter().enumerate().for_each(|(i, &v)| {
-            begin_index.entry(v).or_insert(i);
-        });
+        values_some
+            .into_iter()
+            .enumerate()
+            .for_each(|(index, value)| {
+                begin_index.entry(value).or_insert(index);
+            });
 
         Ok(WaveletMatrix {
             len,
@@ -122,16 +131,20 @@ impl<
                     Some(*acc)
                 }))
                 .collect::<Vec<_>>();
-            for (index, value) in iter::zip(indices_some.iter_mut(), values_some.iter_mut()) {
-                let bit = bits[*index];
-                if bit {
-                    *value |= NumberType::one() << (self.height - depth - 1);
-                    *index = zero + rank[*index][bit as usize];
-                } else {
-                    *index = rank[*index][bit as usize];
-                }
-                debug_assert!(*index < layer.len());
-            }
+            indices_some
+                .par_iter_mut()
+                .zip(values_some.par_iter_mut())
+                .for_each(|(index, value)| {
+                    let bit = bits[*index];
+                    if bit {
+                        *value |= NumberType::one() << (self.height - depth - 1);
+                        *index = zero + rank[*index][bit as usize];
+                    } else {
+                        *index = rank[*index][bit as usize];
+                    }
+
+                    debug_assert!(*index < layer.len());
+                });
         }
 
         let is_none = self.is_none.values()?;
