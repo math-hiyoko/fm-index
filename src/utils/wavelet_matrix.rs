@@ -48,13 +48,11 @@ impl<
                 .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
             let num_zeros = layer_bits.par_iter().filter(|&&bit| !bit).count();
-            zeros.push(num_zeros);
-            bits.push(layer_bits.clone());
 
             let mut next_values = vec![NumberType::zero(); values_some.len()];
             let mut zero_index = 0usize;
             let mut one_index = num_zeros;
-            for (bit, value) in iter::zip(layer_bits, values_some) {
+            for (&bit, value) in iter::zip(&layer_bits, values_some) {
                 if bit {
                     next_values[one_index] = value;
                     one_index += 1;
@@ -63,6 +61,9 @@ impl<
                     zero_index += 1;
                 }
             }
+
+            zeros.push(num_zeros);
+            bits.push(layer_bits);
             values_some = next_values;
         }
 
@@ -72,9 +73,12 @@ impl<
             .collect::<PyResult<Vec<_>>>()?;
 
         let mut begin_index = collections::HashMap::new();
-        values_some.iter().enumerate().for_each(|(i, &v)| {
-            begin_index.entry(v).or_insert(i);
-        });
+        values_some
+            .into_iter()
+            .enumerate()
+            .for_each(|(index, value)| {
+                begin_index.entry(value).or_insert(index);
+            });
 
         Ok(WaveletMatrix {
             len,
