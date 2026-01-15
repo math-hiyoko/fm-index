@@ -119,14 +119,14 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (len, char_type, max_bit) = py.detach(move || match &self.inner {
+        let (len, code_unit, max_bit) = py.detach(move || match &self.inner {
             FMIndexEnum::U8(fm_index) => (fm_index.len(), "ucs1", fm_index.max_bit()),
             FMIndexEnum::U16(fm_index) => (fm_index.len(), "ucs2", fm_index.max_bit()),
             FMIndexEnum::U32(fm_index) => (fm_index.len(), "ucs4", fm_index.max_bit()),
         });
         let result = format!(
-            "FMIndex(len={}, char_type={}, max_bit={})",
-            len?, char_type, max_bit?,
+            "FMIndex(len={}, code_unit={}, max_bit={})",
+            len?, code_unit, max_bit?,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -491,7 +491,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=0, char_type=ucs1, max_bit=0)"
+                "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -554,7 +554,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=11, char_type=ucs1, max_bit=7)"
+                "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -646,7 +646,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=13, char_type=ucs2, max_bit=14)"
+                "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
@@ -763,7 +763,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=15, char_type=ucs4, max_bit=17)"
+                "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -852,7 +852,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=35, char_type=ucs4, max_bit=17)"
+                "FMIndex(len=35, code_unit=ucs4, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(

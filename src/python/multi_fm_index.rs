@@ -182,7 +182,7 @@ impl PyMultiFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (num_docs, total_num_chars, char_type, max_bit) =
+        let (num_docs, total_num_chars, code_unit, max_bit) =
             py.detach(move || match &self.inner {
                 MultiFMIndexEnum::U8(multi_fm_index) => (
                     multi_fm_index.len(),
@@ -204,8 +204,8 @@ impl PyMultiFMIndex {
                 ),
             });
         let result = format!(
-            "MultiFMIndex(num_docs={}, total_num_chars={}, char_type={}, max_bit={})",
-            num_docs?, total_num_chars?, char_type, max_bit?,
+            "MultiFMIndex(num_docs={}, total_num_chars={}, code_unit={}, max_bit={})",
+            num_docs?, total_num_chars?, code_unit, max_bit?,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -631,7 +631,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=0, total_num_chars=0, char_type=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)",
             );
             assert_eq!(
                 multi_fm_index
@@ -738,7 +738,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=0, char_type=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)",
             );
             assert_eq!(
                 multi_fm_index
@@ -850,7 +850,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=36, char_type=ucs1, max_bit=7)",
+                "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1079,7 +1079,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=27, char_type=ucs2, max_bit=14)",
+                "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1308,7 +1308,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=19, char_type=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1537,7 +1537,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=35, char_type=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=35, code_unit=ucs4, max_bit=17)",
             );
             assert_eq!(
                 multi_fm_index
