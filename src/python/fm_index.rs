@@ -119,24 +119,15 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let result = py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => PyResult::Ok(format!(
-                "FMIndex(\"{:}\")",
-                String::from_utf8(fm_index.values()?).map_err(PyUnicodeDecodeError::new_err)?
-            )),
-            FMIndexEnum::U16(fm_index) => Ok(format!(
-                "FMIndex(\"{:}\")",
-                String::from_utf16(&fm_index.values()?).map_err(PyUnicodeDecodeError::new_err)?
-            )),
-            FMIndexEnum::U32(fm_index) => Ok(format!(
-                "FMIndex(\"{:}\")",
-                fm_index
-                    .values()?
-                    .par_iter()
-                    .map(|&c| char::from_u32(c).unwrap_or('\u{FFFD}'))
-                    .collect::<String>()
-            )),
-        })?;
+        let (len, code_unit, max_bit) = py.detach(move || match &self.inner {
+            FMIndexEnum::U8(fm_index) => (fm_index.len(), "ucs1", fm_index.max_bit()),
+            FMIndexEnum::U16(fm_index) => (fm_index.len(), "ucs2", fm_index.max_bit()),
+            FMIndexEnum::U32(fm_index) => (fm_index.len(), "ucs4", fm_index.max_bit()),
+        });
+        let result = format!(
+            "FMIndex(len={}, code_unit={}, max_bit={})",
+            len?, code_unit, max_bit?,
+        );
         Ok(PyString::new(py, &result).into())
     }
 
@@ -500,7 +491,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(\"\")"
+                "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -563,7 +554,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(\"mississippi\")"
+                "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -655,7 +646,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(\"にわにはにわにわとりがいる\")"
+                "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
@@ -772,7 +763,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(\"🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊\")"
+                "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -861,7 +852,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(\"👨‍👩‍👧‍👦👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦xx👨‍👩‍👧‍👦👨‍👧\")"
+                "FMIndex(len=35, code_unit=ucs4, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(

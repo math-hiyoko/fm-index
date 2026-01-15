@@ -90,6 +90,10 @@ impl<
         })
     }
 
+    pub(crate) fn max_bit(&self) -> PyResult<usize> {
+        Ok(self.height)
+    }
+
     /// Get the value at the specified position.
     pub(crate) fn access(&self, mut index: usize) -> PyResult<Option<NumberType>> {
         if index >= self.len {

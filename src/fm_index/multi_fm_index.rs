@@ -12,6 +12,7 @@ pub(crate) struct MultiFMIndex<
     Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     doc_len: Vec<usize>,
+    total_num_chars: usize,
     base_fm_index: BaseFMIndex<Element>,
     doc: collections::HashMap<usize, usize>, // suffix array index -> doc_id
     pos: Vec<(usize, usize)>,                // (doc_id, offset)
@@ -23,6 +24,7 @@ impl<
 {
     pub(crate) fn new(data: &[Vec<Element>]) -> PyResult<Self> {
         let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
+        let total_num_chars = doc_len.iter().sum::<usize>();
 
         let data = data
             .iter()
@@ -74,6 +76,7 @@ impl<
 
         Ok(MultiFMIndex {
             doc_len,
+            total_num_chars,
             base_fm_index,
             doc,
             pos,
@@ -111,6 +114,14 @@ impl<
 
     pub(crate) fn len(&self) -> PyResult<usize> {
         Ok(self.doc_len.len())
+    }
+
+    pub(crate) fn total_num_chars(&self) -> PyResult<usize> {
+        Ok(self.total_num_chars)
+    }
+
+    pub(crate) fn max_bit(&self) -> PyResult<usize> {
+        self.base_fm_index.burrows_wheeler_transform().max_bit()
     }
 
     pub(crate) fn values(&self) -> PyResult<Vec<Vec<Element>>> {
