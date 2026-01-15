@@ -31,10 +31,10 @@ def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 
 def test_str(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
-    assert str(fm_index_empty) == 'FMIndex("")'
-    assert str(fm_index_ucs1) == 'FMIndex("mississippi")'
-    assert str(fm_index_ucs2) == 'FMIndex("にわにはにわにわとりがいる")'
-    assert str(fm_index_ucs4) == 'FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")'
+    assert str(fm_index_empty) == "FMIndex(len=0, char_type=ucs1, max_bit=0)"
+    assert str(fm_index_ucs1) == "FMIndex(len=11, char_type=ucs1, max_bit=7)"
+    assert str(fm_index_ucs2) == "FMIndex(len=13, char_type=ucs2, max_bit=14)"
+    assert str(fm_index_ucs4) == "FMIndex(len=15, char_type=ucs4, max_bit=17)"
 
 
 def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):

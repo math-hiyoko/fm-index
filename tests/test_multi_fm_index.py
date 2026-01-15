@@ -49,17 +49,25 @@ def test_str(
     multi_fm_index_ucs2,
     multi_fm_index_ucs4,
 ):
-    assert str(multi_fm_index_empty) == "MultiFMIndex([])"
-    assert str(multi_fm_index_empties) == 'MultiFMIndex(["", "", ""])'
     assert (
-        str(multi_fm_index_ucs1) == 'MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])'
+        str(multi_fm_index_empty)
+        == "MultiFMIndex(num_docs=0, total_num_chars=0, char_type=ucs1, max_bit=0)"
+    )
+    assert (
+        str(multi_fm_index_empties)
+        == "MultiFMIndex(num_docs=3, total_num_chars=0, char_type=ucs1, max_bit=0)"
+    )
+    assert (
+        str(multi_fm_index_ucs1)
+        == "MultiFMIndex(num_docs=3, total_num_chars=36, char_type=ucs1, max_bit=7)"
     )
     assert (
         str(multi_fm_index_ucs2)
-        == 'MultiFMIndex(["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"])'
+        == "MultiFMIndex(num_docs=3, total_num_chars=27, char_type=ucs2, max_bit=14)"
     )
     assert (
-        str(multi_fm_index_ucs4) == 'MultiFMIndex(["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"])'
+        str(multi_fm_index_ucs4)
+        == "MultiFMIndex(num_docs=3, total_num_chars=19, char_type=ucs4, max_bit=17)"
     )
 
 
