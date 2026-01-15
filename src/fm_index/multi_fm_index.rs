@@ -42,7 +42,7 @@ impl<
 
         let data_none_bitvector = BitVector::new(
             &data
-                .par_iter()
+                .into_par_iter()
                 .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
         )?;
@@ -60,9 +60,9 @@ impl<
             .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
 
         let pos = suffix_idx
-            .par_iter()
+            .into_par_iter()
             .step_by(SUFFIX_ARRAY_SAMPLING_RATE)
-            .map(|&suffix_idx| {
+            .map(|suffix_idx| {
                 let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
                 let doc_start_idx = if doc_id == 0 {
                     0
@@ -98,9 +98,9 @@ impl<
     pub(crate) fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
         let mut step = 0usize;
         loop {
-            if let Some(doc_id) = self.doc.get(&k) {
+            if let Some(&doc_id) = self.doc.get(&k) {
                 let offset = step;
-                return Ok((*doc_id, offset));
+                return Ok((doc_id, offset));
             }
             if k.is_multiple_of(SUFFIX_ARRAY_SAMPLING_RATE) {
                 let (doc_id, mut offset) = self.pos[k / SUFFIX_ARRAY_SAMPLING_RATE];
