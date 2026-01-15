@@ -51,23 +51,23 @@ def test_str(
 ):
     assert (
         str(multi_fm_index_empty)
-        == "MultiFMIndex(num_docs=0, total_num_chars=0, char_type=ucs1, max_bit=0)"
+        == "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)"
     )
     assert (
         str(multi_fm_index_empties)
-        == "MultiFMIndex(num_docs=3, total_num_chars=0, char_type=ucs1, max_bit=0)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)"
     )
     assert (
         str(multi_fm_index_ucs1)
-        == "MultiFMIndex(num_docs=3, total_num_chars=36, char_type=ucs1, max_bit=7)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)"
     )
     assert (
         str(multi_fm_index_ucs2)
-        == "MultiFMIndex(num_docs=3, total_num_chars=27, char_type=ucs2, max_bit=14)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)"
     )
     assert (
         str(multi_fm_index_ucs4)
-        == "MultiFMIndex(num_docs=3, total_num_chars=19, char_type=ucs4, max_bit=17)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)"
     )
 
 
