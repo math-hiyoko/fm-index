@@ -99,12 +99,12 @@ fn suffix_array_induced_sorting(data: Vec<usize>, alphabet_max: usize) -> Vec<us
     }
 
     // suffix array's origin is +1
-    let induced_sort = |suffix_idx: &mut Vec<usize>, lms_positions: Vec<usize>| {
+    let induced_sort = |suffix_idx: &mut Vec<usize>, lms_positions: &Vec<usize>| {
         suffix_idx.iter_mut().for_each(|elem| {
             *elem = 0;
         });
         let mut bucket_cursor = bucket_s_start.clone();
-        for lms_pos in lms_positions {
+        for &lms_pos in lms_positions {
             if lms_pos == length {
                 continue;
             }
@@ -148,7 +148,7 @@ fn suffix_array_induced_sorting(data: Vec<usize>, alphabet_max: usize) -> Vec<us
         .filter(|&i| !is_s_type[i - 1] && is_s_type[i])
         .collect::<Vec<_>>();
     debug_assert_eq!(lms_positions.len(), num_lms);
-    induced_sort(&mut suffix_idx, lms_positions.clone());
+    induced_sort(&mut suffix_idx, &lms_positions);
 
     if num_lms > 0 {
         let mut sorted_lms_positions = suffix_idx
@@ -197,7 +197,7 @@ fn suffix_array_induced_sorting(data: Vec<usize>, alphabet_max: usize) -> Vec<us
         for i in 0..num_lms {
             sorted_lms_positions[i] = lms_positions[reduced_suffix_array[i]];
         }
-        induced_sort(&mut suffix_idx, sorted_lms_positions);
+        induced_sort(&mut suffix_idx, &sorted_lms_positions);
     }
     suffix_idx.iter_mut().for_each(|x| *x -= 1);
     suffix_idx
@@ -220,16 +220,16 @@ fn suffix_array(data: Vec<usize>, alphabet_max: usize) -> Vec<usize> {
 }
 
 pub(crate) fn suffix_array_option<Element: PrimInt + Unsigned>(
-    data: Vec<Option<Element>>,
+    data: &[Option<Element>],
 ) -> Vec<usize> {
     let data = data
-        .into_iter()
+        .iter()
         .map(|opt| match opt {
             Some(value) => value.to_usize().unwrap() + 1,
             None => 0,
         })
         .collect::<Vec<_>>();
-    let alphabet_max = data.iter().copied().max().unwrap_or(0);
+    let &alphabet_max = data.iter().max().unwrap_or(&0);
     suffix_array(data, alphabet_max)
 }
 
@@ -250,7 +250,7 @@ mod tests {
         let suffix_idx = suffix_array(array.to_vec(), array.iter().copied().max().unwrap_or(0));
         assert_eq!(suffix_idx, expected_idx);
         let suffix_idx_optional =
-            suffix_array_option(array.iter().map(|&x| Some(x)).collect::<Vec<_>>());
+            suffix_array_option(&array.iter().map(|&x| Some(x)).collect::<Vec<_>>());
         assert_eq!(suffix_idx_optional, expected_idx);
     }
 
@@ -330,7 +330,7 @@ mod tests {
             .flat_map(|&str| str.bytes().map(Some).chain(iter::once(None)))
             .collect::<Vec<_>>();
         assert_eq!(
-            suffix_array_option(array),
+            suffix_array_option(&array),
             &[
                 37, 13, 6, 25, 5, 24, 21, 14, 17, 19, 3, 1, 7, 9, 11, 0, 22, 15, 18, 20, 36, 33,
                 30, 27, 26, 4, 2, 8, 10, 35, 34, 23, 16, 12, 32, 29, 31, 28,

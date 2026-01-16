@@ -35,7 +35,7 @@ impl<
             })
             .collect::<Vec<_>>();
 
-        let suffix_idx = suffix_array_option(data.clone());
+        let suffix_idx = suffix_array_option(&data);
 
         let data_none_bitvector = BitVector::new(
             data.par_iter()

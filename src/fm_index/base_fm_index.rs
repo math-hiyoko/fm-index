@@ -26,7 +26,7 @@ impl<
 > BaseFMIndex<Element>
 {
     pub(super) fn new(data: Vec<Option<Element>>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_option(data.clone());
+        let suffix_idx = suffix_array_option(&data);
 
         Self::new_with_suffix_array(data, suffix_idx)
     }
@@ -196,7 +196,7 @@ mod tests {
             .chain(iter::once(None))
             .collect::<Vec<_>>();
         let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
-        let suffix_idx = suffix_array_option(data.clone());
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -219,7 +219,7 @@ mod tests {
             .chain(iter::once(None))
             .collect::<Vec<_>>();
         let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
-        let suffix_idx = suffix_array_option(data.clone());
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -241,7 +241,7 @@ mod tests {
             .chain(iter::once(None))
             .collect::<Vec<_>>();
         let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
-        let suffix_idx = suffix_array_option(data.clone());
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
