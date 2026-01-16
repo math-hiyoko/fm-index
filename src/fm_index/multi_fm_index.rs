@@ -40,8 +40,7 @@ impl<
         let base_fm_index = BaseFMIndex::new_with_suffix_array(data.clone(), suffix_idx.clone())?;
 
         let data_none_bitvector = BitVector::new(
-            &data
-                .into_par_iter()
+            data.into_par_iter()
                 .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
         )?;

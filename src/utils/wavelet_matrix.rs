@@ -25,8 +25,7 @@ impl<
     pub(crate) fn new(data: Vec<Option<NumberType>>) -> PyResult<Self> {
         let len = data.len();
 
-        let is_none =
-            BitVector::new(&data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
+        let is_none = BitVector::new(data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
 
         let mut values_some = data.into_iter().flatten().collect::<Vec<_>>();
         let height = values_some
@@ -64,7 +63,7 @@ impl<
 
         let layers = bits
             .into_par_iter()
-            .map(|layer_bits| BitVector::new(&layer_bits))
+            .map(BitVector::new)
             .collect::<PyResult<Vec<_>>>()?;
 
         let mut begin_index = collections::HashMap::new();
