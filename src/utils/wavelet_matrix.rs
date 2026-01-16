@@ -261,7 +261,7 @@ mod tests {
     fn test_empty() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(Vec::new()).unwrap();
+        let wv = WaveletMatrix::<u8>::new(vec![]).unwrap();
         assert_eq!(
             wv.access(0).unwrap_err().to_string(),
             "IndexError: index out of bounds"

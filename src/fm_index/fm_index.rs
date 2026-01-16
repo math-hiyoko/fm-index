@@ -120,20 +120,20 @@ mod tests {
 
     #[test]
     fn test_fm_index_empty() {
-        let data = [].to_vec();
+        let data = vec![];
         let fm_index = FMIndex::new(data).unwrap();
 
         assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(!fm_index.contains(b"a".to_vec()).unwrap());
-        assert_eq!(fm_index.count([].to_vec()).unwrap(), 1);
+        assert_eq!(fm_index.count(vec![]).unwrap(), 1);
         assert!(fm_index.count(b"a".to_vec()).unwrap().is_zero());
-        assert_eq!(fm_index.locate([].to_vec()).unwrap(), [0]);
+        assert_eq!(fm_index.locate(vec![]).unwrap(), [0]);
         assert!(fm_index.locate(b"a".to_vec()).unwrap().is_empty());
-        assert!(fm_index.starts_with([].to_vec()).unwrap());
+        assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(!fm_index.starts_with(b"a".to_vec()).unwrap());
-        assert!(fm_index.ends_with([].to_vec()).unwrap());
+        assert!(fm_index.ends_with(vec![]).unwrap());
         assert!(!fm_index.ends_with(b"a".to_vec()).unwrap());
     }
 
@@ -144,17 +144,17 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 10);
         assert_eq!(fm_index.values().unwrap(), data);
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(fm_index.contains(b"a".to_vec()).unwrap());
         assert_eq!(fm_index.count(b"a".to_vec()).unwrap(), 10);
         assert_eq!(
             fm_index.locate(b"a".to_vec()).unwrap(),
             [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
         );
-        assert!(fm_index.starts_with([].to_vec()).unwrap());
+        assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(fm_index.starts_with(b"aa".to_vec()).unwrap());
         assert!(!fm_index.starts_with(b"bb".to_vec()).unwrap());
-        assert!(fm_index.ends_with([].to_vec()).unwrap());
+        assert!(fm_index.ends_with(vec![]).unwrap());
         assert!(fm_index.ends_with(b"aa".to_vec()).unwrap());
         assert!(!fm_index.ends_with(b"bb".to_vec()).unwrap());
     }
@@ -166,14 +166,14 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 11);
         assert_eq!(fm_index.values().unwrap(), data);
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(fm_index.contains(b"is".to_vec()).unwrap());
         assert_eq!(fm_index.count(b"is".to_vec()).unwrap(), 2);
         assert_eq!(fm_index.locate(b"is".to_vec()).unwrap(), [4, 1]);
-        assert!(fm_index.starts_with([].to_vec()).unwrap());
+        assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(fm_index.starts_with(b"mi".to_vec()).unwrap());
         assert!(!fm_index.starts_with(b"si".to_vec()).unwrap());
-        assert!(fm_index.ends_with([].to_vec()).unwrap());
+        assert!(fm_index.ends_with(vec![]).unwrap());
         assert!(fm_index.ends_with(b"pi".to_vec()).unwrap());
         assert!(!fm_index.ends_with(b"ip".to_vec()).unwrap());
     }
@@ -188,7 +188,7 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 13);
         assert_eq!(fm_index.values().unwrap(), data);
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(
             fm_index
                 .contains(['に' as u32, 'わ' as u32].to_vec())
@@ -204,7 +204,7 @@ mod tests {
                 .unwrap(),
             [6, 0, 4]
         );
-        assert!(fm_index.starts_with([].to_vec()).unwrap());
+        assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(
             fm_index
                 .starts_with(['に' as u32, 'わ' as u32].to_vec())
@@ -215,7 +215,7 @@ mod tests {
                 .starts_with(['い' as u32, 'る' as u32].to_vec())
                 .unwrap()
         );
-        assert!(fm_index.ends_with([].to_vec()).unwrap());
+        assert!(fm_index.ends_with(vec![]).unwrap());
         assert!(
             fm_index
                 .ends_with(['い' as u32, 'る' as u32].to_vec())

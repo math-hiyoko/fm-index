@@ -221,7 +221,7 @@ impl<
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
-        let mut result = Vec::new();
+        let mut result = vec![];
         if start != end {
             let bwt = self.base_fm_index.burrows_wheeler_transform();
             let start_rank = bwt.rank(None, start)?;
@@ -272,17 +272,17 @@ mod tests {
 
         assert!(fm_index.len().unwrap().is_zero());
         assert!(fm_index.values().unwrap().is_empty());
-        assert!(!fm_index.contains([].to_vec()).unwrap());
+        assert!(!fm_index.contains(vec![]).unwrap());
         assert!(!fm_index.contains(b"a".to_vec()).unwrap());
-        assert!(fm_index.count_all([].to_vec()).unwrap().is_zero());
+        assert!(fm_index.count_all(vec![]).unwrap().is_zero());
         assert!(fm_index.count_all(b"a".to_vec()).unwrap().is_zero());
-        assert!(fm_index.count([].to_vec()).unwrap().is_empty());
+        assert!(fm_index.count(vec![]).unwrap().is_empty());
         assert!(fm_index.count(b"a".to_vec()).unwrap().is_empty());
-        assert!(fm_index.locate([].to_vec()).unwrap().is_empty());
+        assert!(fm_index.locate(vec![]).unwrap().is_empty());
         assert!(fm_index.locate(b"a".to_vec()).unwrap().is_empty());
-        assert!(fm_index.starts_with([].to_vec()).unwrap().is_empty());
+        assert!(fm_index.starts_with(vec![]).unwrap().is_empty());
         assert!(fm_index.starts_with(b"a".to_vec()).unwrap().is_empty());
-        assert!(fm_index.ends_with([].to_vec()).unwrap().is_empty());
+        assert!(fm_index.ends_with(vec![]).unwrap().is_empty());
         assert!(fm_index.ends_with(b"a".to_vec()).unwrap().is_empty());
     }
 
@@ -296,23 +296,23 @@ mod tests {
             fm_index.values().unwrap(),
             [vec![] as Vec<u8>, vec![] as Vec<u8>, vec![] as Vec<u8>]
         );
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(!fm_index.contains(b"a".to_vec()).unwrap());
-        assert_eq!(fm_index.count_all([].to_vec()).unwrap(), 3);
+        assert_eq!(fm_index.count_all(vec![]).unwrap(), 3);
         assert_eq!(fm_index.count_all(b"a".to_vec()).unwrap(), 0);
         assert_eq!(
-            fm_index.count([].to_vec()).unwrap(),
+            fm_index.count(vec![]).unwrap(),
             collections::HashMap::from([(0usize, 1usize), (1usize, 1usize), (2usize, 1usize)])
         );
         assert!(fm_index.count(b"a".to_vec()).unwrap().is_empty());
         assert_eq!(
-            fm_index.locate([].to_vec()).unwrap(),
+            fm_index.locate(vec![]).unwrap(),
             collections::HashMap::from([(0, vec![0]), (1, vec![0]), (2, vec![0])])
         );
         assert!(fm_index.locate(b"a".to_vec()).unwrap().is_empty());
-        assert_eq!(fm_index.starts_with([].to_vec()).unwrap(), [2, 1, 0]);
+        assert_eq!(fm_index.starts_with(vec![]).unwrap(), [2, 1, 0]);
         assert!(fm_index.starts_with(b"a".to_vec()).unwrap().is_empty());
-        assert_eq!(fm_index.ends_with([].to_vec()).unwrap(), [2, 1, 0]);
+        assert_eq!(fm_index.ends_with(vec![]).unwrap(), [2, 1, 0]);
         assert!(fm_index.ends_with(b"a".to_vec()).unwrap().is_empty());
     }
 
@@ -328,13 +328,13 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 4);
         assert_eq!(fm_index.values().unwrap(), data);
-        assert!(fm_index.contains([].to_vec()).unwrap());
+        assert!(fm_index.contains(vec![]).unwrap());
         assert!(!fm_index.contains(b"a".to_vec()).unwrap());
         assert!(fm_index.contains(b"aaaaaa".to_vec()).unwrap());
-        assert_eq!(fm_index.count_all([].to_vec()).unwrap(), 28);
+        assert_eq!(fm_index.count_all(vec![]).unwrap(), 28);
         assert_eq!(fm_index.count_all(b"aa".to_vec()).unwrap(), 21);
         assert_eq!(
-            fm_index.count([].to_vec()).unwrap(),
+            fm_index.count(vec![]).unwrap(),
             collections::HashMap::from([(0, 11), (1, 1), (2, 7), (3, 9)])
         );
         assert_eq!(
@@ -342,7 +342,7 @@ mod tests {
             collections::HashMap::from([(0, 9), (2, 5), (3, 7)])
         );
         assert_eq!(
-            fm_index.locate([].to_vec()).unwrap(),
+            fm_index.locate(vec![]).unwrap(),
             collections::HashMap::from([
                 (0, vec![10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
                 (1, vec![0]),
@@ -358,9 +358,9 @@ mod tests {
                 (3, vec![6, 5, 4, 3, 2, 1, 0])
             ])
         );
-        assert_eq!(fm_index.starts_with([].to_vec()).unwrap(), [1, 2, 3, 0]);
+        assert_eq!(fm_index.starts_with(vec![]).unwrap(), [1, 2, 3, 0]);
         assert_eq!(fm_index.starts_with(b"aa".to_vec()).unwrap(), [2, 3, 0]);
-        assert_eq!(fm_index.ends_with([].to_vec()).unwrap(), [3, 0, 1, 2]);
+        assert_eq!(fm_index.ends_with(vec![]).unwrap(), [3, 0, 1, 2]);
         assert_eq!(fm_index.ends_with(b"aa".to_vec()).unwrap(), [3, 0, 2]);
     }
 
@@ -371,7 +371,7 @@ mod tests {
 
         assert_eq!(fm_index.len().unwrap(), 3);
         assert_eq!(fm_index.values().unwrap(), data);
-        assert!(!fm_index.contains([].to_vec()).unwrap());
+        assert!(!fm_index.contains(vec![]).unwrap());
         assert!(!fm_index.contains(b"ana".to_vec()).unwrap());
         assert!(fm_index.contains(b"banana".to_vec()).unwrap());
         assert_eq!(fm_index.count_all(b"ana".to_vec()).unwrap(), 4);
