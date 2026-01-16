@@ -22,18 +22,13 @@ impl<
     NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > WaveletMatrix<NumberType>
 {
-    pub(crate) fn new(data: &[Option<NumberType>]) -> PyResult<Self> {
+    pub(crate) fn new(data: Vec<Option<NumberType>>) -> PyResult<Self> {
         let len = data.len();
 
-        let values = data.to_owned();
-        let is_none = BitVector::new(
-            &values
-                .iter()
-                .map(|value| value.is_none())
-                .collect::<Vec<_>>(),
-        )?;
+        let is_none =
+            BitVector::new(&data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
 
-        let mut values_some = values.into_iter().flatten().collect::<Vec<_>>();
+        let mut values_some = data.into_iter().flatten().collect::<Vec<_>>();
         let height = values_some
             .par_iter()
             .max()
@@ -166,7 +161,7 @@ impl<
     }
 
     /// Count the number of occurrences of a value in the range [0, end).
-    pub(crate) fn rank(&self, value: &Option<NumberType>, mut end: usize) -> PyResult<usize> {
+    pub(crate) fn rank(&self, value: Option<NumberType>, mut end: usize) -> PyResult<usize> {
         if end > self.len {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
@@ -176,7 +171,7 @@ impl<
         }
         end -= self.is_none.rank(true, end)?;
 
-        let &value = value.as_ref().unwrap();
+        let value = value.unwrap();
         if value.bit_width() > self.height {
             return Ok(0usize);
         }
@@ -201,7 +196,7 @@ impl<
     }
 
     /// Find the position of the k-th occurrence of a value (1-indexed).
-    pub(crate) fn select(&self, value: &Option<NumberType>, kth: usize) -> PyResult<Option<usize>> {
+    pub(crate) fn select(&self, value: Option<NumberType>, kth: usize) -> PyResult<Option<usize>> {
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
@@ -209,7 +204,7 @@ impl<
             return self.is_none.select(true, kth);
         }
 
-        let &value = value.as_ref().unwrap();
+        let value = value.unwrap();
         if value.bit_width() > self.height {
             return Ok(None);
         }
@@ -258,28 +253,29 @@ mod tests {
             Some(3),
             Some(5),
             Some(0),
-        ];
-        WaveletMatrix::new(&elements).unwrap()
+        ]
+        .to_vec();
+        WaveletMatrix::new(elements).unwrap()
     }
 
     #[test]
     fn test_empty() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(&Vec::new()).unwrap();
+        let wv = WaveletMatrix::<u8>::new(Vec::new()).unwrap();
         assert_eq!(
             wv.access(0).unwrap_err().to_string(),
             "IndexError: index out of bounds"
         );
         assert_eq!(wv.values().unwrap(), Vec::<Option<u8>>::new());
-        assert_eq!(wv.rank(&Some(0u8), 0).unwrap(), 0);
-        assert_eq!(wv.rank(&None, 0).unwrap(), 0);
+        assert_eq!(wv.rank(Some(0u8), 0).unwrap(), 0);
+        assert_eq!(wv.rank(None, 0).unwrap(), 0);
         assert_eq!(
-            wv.select(&Some(0u8), 0).unwrap_err().to_string(),
+            wv.select(Some(0u8), 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
         assert_eq!(
-            wv.select(&None, 0).unwrap_err().to_string(),
+            wv.select(None, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
     }
@@ -288,33 +284,33 @@ mod tests {
     fn test_all_zero() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(&[Some(0u8); 64]).unwrap();
+        let wv = WaveletMatrix::<u8>::new([Some(0u8); 64].to_vec()).unwrap();
         assert_eq!(wv.access(1).unwrap(), Some(0u8));
         assert_eq!(wv.values().unwrap(), [Some(0u8); 64]);
-        assert_eq!(wv.rank(&Some(0u8), 1).unwrap(), 1);
-        assert_eq!(wv.select(&Some(0u8), 1).unwrap(), Some(0));
+        assert_eq!(wv.rank(Some(0u8), 1).unwrap(), 1);
+        assert_eq!(wv.select(Some(0u8), 1).unwrap(), Some(0));
     }
 
     #[test]
     fn test_all_none() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(&[None; 64]).unwrap();
+        let wv = WaveletMatrix::<u8>::new([None; 64].to_vec()).unwrap();
         assert_eq!(wv.access(1).unwrap(), None);
         assert_eq!(wv.values().unwrap(), [None; 64]);
-        assert_eq!(wv.rank(&None, 1).unwrap(), 1);
-        assert_eq!(wv.select(&None, 1).unwrap(), Some(0));
+        assert_eq!(wv.rank(None, 1).unwrap(), 1);
+        assert_eq!(wv.select(None, 1).unwrap(), Some(0));
     }
 
     #[test]
     fn test_max_value() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(&[Some(u8::MAX); 64]).unwrap();
+        let wv = WaveletMatrix::<u8>::new([Some(u8::MAX); 64].to_vec()).unwrap();
         assert_eq!(wv.access(1).unwrap(), Some(u8::MAX));
         assert_eq!(wv.values().unwrap(), [Some(u8::MAX); 64]);
-        assert_eq!(wv.rank(&Some(u8::MAX), 1).unwrap(), 1);
-        assert_eq!(wv.select(&Some(u8::MAX), 1).unwrap(), Some(0));
+        assert_eq!(wv.rank(Some(u8::MAX), 1).unwrap(), 1);
+        assert_eq!(wv.select(Some(u8::MAX), 1).unwrap(), Some(0));
     }
 
     #[test]
@@ -358,8 +354,8 @@ mod tests {
         Python::initialize();
 
         let wv = create_dummy();
-        assert_eq!(wv.rank(&Some(5u8), 11).unwrap(), 4usize);
-        assert_eq!(wv.rank(&None, 11).unwrap(), 2usize);
+        assert_eq!(wv.rank(Some(5u8), 11).unwrap(), 4usize);
+        assert_eq!(wv.rank(None, 11).unwrap(), 2usize);
     }
 
     #[test]
@@ -367,9 +363,9 @@ mod tests {
         Python::initialize();
 
         let wv = create_dummy();
-        assert_eq!(wv.select(&Some(5u8), 4).unwrap(), Some(8usize));
-        assert_eq!(wv.select(&None, 3).unwrap(), Some(11usize));
-        assert_eq!(wv.select(&Some(5u8), 6).unwrap(), None);
-        assert_eq!(wv.select(&None, 6).unwrap(), None);
+        assert_eq!(wv.select(Some(5u8), 4).unwrap(), Some(8usize));
+        assert_eq!(wv.select(None, 3).unwrap(), Some(11usize));
+        assert_eq!(wv.select(Some(5u8), 6).unwrap(), None);
+        assert_eq!(wv.select(None, 6).unwrap(), None);
     }
 }
