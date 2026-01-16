@@ -37,30 +37,16 @@ impl<
 
         let suffix_idx = suffix_array_option(data.clone());
 
-        let base_fm_index = BaseFMIndex::new_with_suffix_array(data.clone(), suffix_idx.clone())?;
-
         let data_none_bitvector = BitVector::new(
-            data.into_par_iter()
+            data.par_iter()
                 .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
         )?;
 
-        let doc = (1..=doc_len.len())
-            .into_par_iter()
-            .map(|idx| {
-                let k = base_fm_index
-                    .burrows_wheeler_transform()
-                    .select(None, idx)?
-                    .unwrap();
-                let doc_id = data_none_bitvector.rank(true, suffix_idx[k])?;
-                Ok((k, doc_id))
-            })
-            .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
-
         let pos = suffix_idx
-            .into_par_iter()
+            .par_iter()
             .step_by(SUFFIX_ARRAY_SAMPLING_RATE)
-            .map(|suffix_idx| {
+            .map(|&suffix_idx| {
                 let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
                 let doc_start_idx = if doc_id == 0 {
                     0
@@ -71,6 +57,20 @@ impl<
                 Ok((doc_id, offset))
             })
             .collect::<PyResult<Vec<(usize, usize)>>>()?;
+
+        let base_fm_index = BaseFMIndex::new_with_suffix_array(data, suffix_idx)?;
+
+        let doc = (1..=doc_len.len())
+            .into_par_iter()
+            .map(|idx| {
+                let k = base_fm_index
+                    .burrows_wheeler_transform()
+                    .select(None, idx)?
+                    .unwrap();
+                let doc_id = data_none_bitvector.rank(true, base_fm_index.suffix_idx(k)?)?;
+                Ok((k, doc_id))
+            })
+            .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
 
         Ok(MultiFMIndex {
             doc_len,
