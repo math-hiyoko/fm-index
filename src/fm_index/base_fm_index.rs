@@ -5,7 +5,7 @@ use pyo3::PyResult;
 use rayon::prelude::*;
 
 use crate::utils::{
-    bit_width::BitWidth, suffix_array::suffix_array, wavelet_matrix::WaveletMatrix,
+    bit_width::BitWidth, suffix_array::suffix_array_option, wavelet_matrix::WaveletMatrix,
 };
 
 pub(super) const SUFFIX_ARRAY_SAMPLING_RATE: usize = 32;
@@ -25,16 +25,15 @@ impl<
     Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > BaseFMIndex<Element>
 {
-    pub(super) fn new(data: &[Option<Element>]) -> PyResult<Self> {
-        let alphabet_max = data.par_iter().max().copied().flatten();
-        let suffix_idx = suffix_array(data, alphabet_max);
+    pub(super) fn new(data: Vec<Option<Element>>) -> PyResult<Self> {
+        let suffix_idx = suffix_array_option(&data);
 
-        Self::new_with_suffix_array(data, &suffix_idx)
+        Self::new_with_suffix_array(data, suffix_idx)
     }
 
     pub(super) fn new_with_suffix_array(
-        data: &[Option<Element>],
-        suffix_idx: &[usize],
+        data: Vec<Option<Element>>,
+        suffix_idx: Vec<usize>,
     ) -> PyResult<Self> {
         let len = data.len();
 
@@ -55,8 +54,8 @@ impl<
         }
 
         let burrows_wheeler_transform = suffix_idx
-            .par_iter()
-            .map(|&idx| {
+            .into_par_iter()
+            .map(|idx| {
                 if idx == 0 {
                     data[len - 1]
                 } else {
@@ -64,7 +63,7 @@ impl<
                 }
             })
             .collect::<Vec<_>>();
-        let burrows_wheeler_transform = WaveletMatrix::new(&burrows_wheeler_transform)?;
+        let burrows_wheeler_transform = WaveletMatrix::new(burrows_wheeler_transform)?;
 
         Ok(BaseFMIndex {
             len,
@@ -83,7 +82,7 @@ impl<
             return Ok(0);
         }
 
-        let rank = bwt.rank(&symbol, index)?;
+        let rank = bwt.rank(symbol, index)?;
         if symbol.is_none() {
             if index < self.zero_suffix_idx {
                 return Ok(rank + 1);
@@ -152,10 +151,10 @@ impl<
     }
 
     #[inline]
-    pub(super) fn range_search(&self, pattern: &[Option<Element>]) -> PyResult<(usize, usize)> {
+    pub(super) fn range_search(&self, pattern: Vec<Option<Element>>) -> PyResult<(usize, usize)> {
         let (mut start, mut end) = (0usize, self.len);
-        for symbol in pattern.iter().rev() {
-            let count_less = match self.counts_less.get(symbol) {
+        for symbol in pattern.into_iter().rev() {
+            let count_less = match self.counts_less.get(&symbol) {
                 Some(&count) => count,
                 None => return Ok((0, 0)),
             };
@@ -181,11 +180,11 @@ mod tests {
     #[test]
     fn test_base_fm_index_empty() {
         let data = [Option::<u8>::None];
-        let fm_index = BaseFMIndex::new(&data).unwrap();
+        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
 
         assert_eq!(fm_index.suffix_idx(0).unwrap(), 0);
         assert_eq!(fm_index.values().unwrap(), [None]);
-        assert_eq!(fm_index.range_search(&[None]).unwrap(), (0, 1));
+        assert_eq!(fm_index.range_search([None].to_vec()).unwrap(), (0, 1));
     }
 
     #[test]
@@ -196,8 +195,8 @@ mod tests {
             .map(Some)
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(&data).unwrap();
-        let suffix_idx = suffix_array(&data, Some(u8::MAX));
+        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -205,7 +204,7 @@ mod tests {
         assert_eq!(fm_index.values().unwrap(), data);
         assert_eq!(
             fm_index
-                .range_search(&[Some(b'a'), Some(b'a'), Some(b'a')])
+                .range_search([Some(b'a'), Some(b'a'), Some(b'a')].to_vec())
                 .unwrap(),
             (3, 11),
         );
@@ -219,15 +218,17 @@ mod tests {
             .map(Some)
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(&data).unwrap();
-        let suffix_idx = suffix_array(&data, Some(u8::MAX));
+        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
         }
         assert_eq!(fm_index.values().unwrap(), data);
         assert_eq!(
-            fm_index.range_search(&[Some(b's'), Some(b'i')]).unwrap(),
+            fm_index
+                .range_search([Some(b's'), Some(b'i')].to_vec())
+                .unwrap(),
             (8, 10),
         );
     }
@@ -239,8 +240,8 @@ mod tests {
             .map(|c| Some(c as u32))
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(&data).unwrap();
-        let suffix_idx = suffix_array(&data, Some(u32::MAX));
+        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
+        let suffix_idx = suffix_array_option(&data);
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -248,7 +249,7 @@ mod tests {
         assert_eq!(fm_index.values().unwrap(), data);
         assert_eq!(
             fm_index
-                .range_search(&[Some('に' as u32), Some('わ' as u32)])
+                .range_search([Some('に' as u32), Some('わ' as u32)].to_vec())
                 .unwrap(),
             (5, 8),
         );

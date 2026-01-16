@@ -22,7 +22,7 @@ pub(crate) struct BitVector {
 }
 
 impl BitVector {
-    pub(crate) fn new(bits: &[bool]) -> PyResult<Self> {
+    pub(crate) fn new(bits: Vec<bool>) -> PyResult<Self> {
         let len = bits.len();
 
         // Pack blocks into BitType words
@@ -58,7 +58,7 @@ impl BitVector {
             select_index_inner.push(0);
         }
         let mut count = [0usize, 0usize];
-        for (index, &bit) in bits.iter().enumerate() {
+        for (index, bit) in bits.into_iter().enumerate() {
             let bit = bit as usize;
             count[bit] += 1;
             if count[bit].is_multiple_of(SELECT_INDEX_INTERBVAL) {
@@ -178,14 +178,14 @@ mod tests {
 
     fn create_dummy() -> BitVector {
         let bits = [true, false, true, true, false, true, false, false].repeat(999);
-        BitVector::new(&bits).unwrap()
+        BitVector::new(bits).unwrap()
     }
 
     #[test]
     fn test_empty() {
         Python::initialize();
 
-        let bv = BitVector::new(&[]).unwrap();
+        let bv = BitVector::new([].to_vec()).unwrap();
 
         assert_eq!(
             bv.access(0).unwrap_err().to_string(),
@@ -203,7 +203,7 @@ mod tests {
         Python::initialize();
 
         let bits = [true; 1024];
-        let bv = BitVector::new(&bits).unwrap();
+        let bv = BitVector::new(bits.to_vec()).unwrap();
 
         assert_eq!(bv.values().unwrap(), bits);
         for i in 0..1024 {
