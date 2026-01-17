@@ -139,7 +139,7 @@ are optimized using data-parallel execution.  </p>
 
 <ul>
 <li><code>N</code> = length of the indexed string</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+<li><code>σ</code> = number of unique characters in the input</li>
 </ul>
 
 <div class="pdoc-code codehilite">
@@ -373,13 +373,6 @@ one by one as an iterator instead of allocating a list.</p>
 <li>Space: <code>O(|suffix|)</code></li>
 </ul>
 
-<p>where:</p>
-
-<ul>
-<li><code>|suffix|</code> = length of the suffix</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
-</ul>
-
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
@@ -422,7 +415,7 @@ making multi-document search efficient in practice.  </p>
 
 <ul>
 <li><code>S</code> = total length of all indexed strings</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
+<li><code>σ</code> = number of unique characters in the input</li>
 </ul>
 
 <div class="pdoc-code codehilite">
