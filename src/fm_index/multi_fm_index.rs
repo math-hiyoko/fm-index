@@ -35,10 +35,26 @@ impl<
             })
             .collect::<Vec<_>>();
 
-        let suffix_idx = suffix_array_option(&data);
+        let value_index = data
+            .iter()
+            .flatten()
+            .cloned()
+            .collect::<collections::HashSet<_>>()
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (value, Element::from(index).unwrap()))
+            .collect::<collections::HashMap<_, _>>();
+
+        let data_mapped = data
+            .into_iter()
+            .map(|value| value.map(|value| value_index[&value]))
+            .collect::<Vec<_>>();
+
+        let suffix_idx = suffix_array_option(&data_mapped);
 
         let data_none_bitvector = BitVector::new(
-            data.par_iter()
+            data_mapped
+                .par_iter()
                 .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
         )?;
@@ -58,7 +74,7 @@ impl<
             })
             .collect::<PyResult<Vec<(usize, usize)>>>()?;
 
-        let base_fm_index = BaseFMIndex::new_with_suffix_array(data, suffix_idx)?;
+        let base_fm_index = BaseFMIndex::new(data_mapped, value_index, suffix_idx)?;
 
         let doc = (1..=doc_len.len())
             .into_par_iter()
@@ -72,7 +88,7 @@ impl<
             })
             .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
 
-        Ok(MultiFMIndex {
+        Ok(Self {
             doc_len,
             total_num_chars,
             base_fm_index,
@@ -118,8 +134,8 @@ impl<
         Ok(self.total_num_chars)
     }
 
-    pub(crate) fn max_bit(&self) -> PyResult<usize> {
-        self.base_fm_index.burrows_wheeler_transform().max_bit()
+    pub(crate) fn num_unique_chars(&self) -> PyResult<usize> {
+        self.base_fm_index.num_unique_chars()
     }
 
     pub(crate) fn values(&self) -> PyResult<Vec<Vec<Element>>> {
@@ -302,7 +318,7 @@ mod tests {
         assert_eq!(fm_index.count_all(b"a".to_vec()).unwrap(), 0);
         assert_eq!(
             fm_index.count(vec![]).unwrap(),
-            collections::HashMap::from([(0usize, 1usize), (1usize, 1usize), (2usize, 1usize)])
+            collections::HashMap::from([(0, 1), (1, 1), (2, 1)])
         );
         assert!(fm_index.count(b"a".to_vec()).unwrap().is_empty());
         assert_eq!(
@@ -342,26 +358,62 @@ mod tests {
             collections::HashMap::from([(0, 9), (2, 5), (3, 7)])
         );
         assert_eq!(
-            fm_index.locate(vec![]).unwrap(),
+            {
+                let mut sorted = fm_index.locate(vec![]).unwrap();
+                sorted.values_mut().for_each(|v| v.sort());
+                sorted
+            },
             collections::HashMap::from([
-                (0, vec![10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
+                (0, (0..11).collect()),
                 (1, vec![0]),
-                (2, vec![6, 5, 4, 3, 2, 1, 0]),
-                (3, vec![8, 7, 6, 5, 4, 3, 2, 1, 0])
+                (2, (0..7).collect()),
+                (3, (0..9).collect()),
             ])
         );
         assert_eq!(
-            fm_index.locate(b"aa".to_vec()).unwrap(),
+            {
+                let mut sorted = fm_index.locate(b"aa".to_vec()).unwrap();
+                sorted.values_mut().for_each(|v| v.sort());
+                sorted
+            },
             collections::HashMap::from([
-                (0, vec![8, 7, 6, 5, 4, 3, 2, 1, 0]),
-                (2, vec![4, 3, 2, 1, 0]),
-                (3, vec![6, 5, 4, 3, 2, 1, 0])
+                (0, (0..9).collect()),
+                (2, (0..5).collect()),
+                (3, (0..7).collect()),
             ])
         );
-        assert_eq!(fm_index.starts_with(vec![]).unwrap(), [1, 2, 3, 0]);
-        assert_eq!(fm_index.starts_with(b"aa".to_vec()).unwrap(), [2, 3, 0]);
-        assert_eq!(fm_index.ends_with(vec![]).unwrap(), [3, 0, 1, 2]);
-        assert_eq!(fm_index.ends_with(b"aa".to_vec()).unwrap(), [3, 0, 2]);
+        assert_eq!(
+            {
+                let mut sorted = fm_index.starts_with(vec![]).unwrap();
+                sorted.sort();
+                sorted
+            },
+            (0..4).collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            {
+                let mut sorted = fm_index.starts_with(b"aa".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            [0, 2, 3],
+        );
+        assert_eq!(
+            {
+                let mut sorted = fm_index.ends_with(vec![]).unwrap();
+                sorted.sort();
+                sorted
+            },
+            (0..4).collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            {
+                let mut sorted = fm_index.ends_with(b"aa".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            [0, 2, 3],
+        );
     }
 
     #[test]
@@ -380,10 +432,28 @@ mod tests {
             collections::HashMap::from([(0, 2), (1, 1), (2, 1)])
         );
         assert_eq!(
-            fm_index.locate(b"ana".to_vec()).unwrap(),
-            collections::HashMap::from([(0, vec![3, 1]), (1, vec![4]), (2, vec![0])])
+            {
+                let mut sorted = fm_index.locate(b"ana".to_vec()).unwrap();
+                sorted.values_mut().for_each(|v| v.sort());
+                sorted
+            },
+            collections::HashMap::from([(0, vec![1, 3]), (1, vec![4]), (2, vec![0])])
         );
-        assert_eq!(fm_index.starts_with(b"ba".to_vec()).unwrap(), [0, 1]);
-        assert_eq!(fm_index.ends_with(b"na".to_vec()).unwrap(), [1, 0]);
+        assert_eq!(
+            {
+                let mut sorted = fm_index.starts_with(b"ba".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            [0, 1],
+        );
+        assert_eq!(
+            {
+                let mut sorted = fm_index.ends_with(b"na".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            [0, 1],
+        );
     }
 }

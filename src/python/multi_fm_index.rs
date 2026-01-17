@@ -76,7 +76,7 @@ enum MultiFMIndexEnum {
 ///
 /// where:
 /// - `S` = total length of all indexed strings
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
+/// - `σ` = number of unique characters in the input
 ///
 /// ```python
 /// from fm_index import MultiFMIndex
@@ -182,30 +182,30 @@ impl PyMultiFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (num_docs, total_num_chars, code_unit, max_bit) =
+        let (num_docs, total_num_chars, num_unique_chars, code_unit) =
             py.detach(move || match &self.inner {
                 MultiFMIndexEnum::U8(multi_fm_index) => (
                     multi_fm_index.len(),
                     multi_fm_index.total_num_chars(),
+                    multi_fm_index.num_unique_chars(),
                     "ucs1",
-                    multi_fm_index.max_bit(),
                 ),
                 MultiFMIndexEnum::U16(multi_fm_index) => (
                     multi_fm_index.len(),
                     multi_fm_index.total_num_chars(),
+                    multi_fm_index.num_unique_chars(),
                     "ucs2",
-                    multi_fm_index.max_bit(),
                 ),
                 MultiFMIndexEnum::U32(multi_fm_index) => (
                     multi_fm_index.len(),
                     multi_fm_index.total_num_chars(),
+                    multi_fm_index.num_unique_chars(),
                     "ucs4",
-                    multi_fm_index.max_bit(),
                 ),
             });
         let result = format!(
-            "MultiFMIndex(num_docs={}, total_num_chars={}, code_unit={}, max_bit={})",
-            num_docs?, total_num_chars?, code_unit, max_bit?,
+            "MultiFMIndex(num_docs={}, total_num_chars={}, num_unique_chars={}, code_unit={})",
+            num_docs?, total_num_chars?, num_unique_chars?, code_unit,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -629,7 +629,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=0, total_num_chars=0, num_unique_chars=0, code_unit=ucs1)",
             );
             assert_eq!(
                 multi_fm_index
@@ -736,7 +736,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=3, total_num_chars=0, num_unique_chars=0, code_unit=ucs1)",
             );
             assert_eq!(
                 multi_fm_index
@@ -848,7 +848,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)",
+                "MultiFMIndex(num_docs=3, total_num_chars=36, num_unique_chars=4, code_unit=ucs1)",
             );
             assert_eq!(
                 multi_fm_index
@@ -935,28 +935,36 @@ mod tests {
                 collections::HashMap::<usize, usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![12, 9, 6, 3, 0, 10, 7, 4, 1, 11, 8, 5, 2]),
-                    (1, vec![13, 10, 2, 5, 11, 3, 6, 12, 4, 7, 9, 1, 8, 0]),
-                    (2, vec![11, 3, 8, 0, 5, 4, 9, 1, 6, 10, 2, 7])
-                ])
+                    (0, (0..13).collect()),
+                    (1, (0..14).collect()),
+                    (2, (0..12).collect())
+                ]),
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, "abc"))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, "abc"))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![9, 6, 3, 0]),
-                    (1, vec![10, 2, 5]),
-                    (2, vec![8, 0, 5])
-                ])
+                    (0, vec![0, 3, 6, 9]),
+                    (1, vec![2, 5, 10]),
+                    (2, vec![0, 5, 8])
+                ]),
             );
             assert_eq!(
                 multi_fm_index
@@ -978,9 +986,10 @@ mod tests {
                 .iter_locate(py, &PyString::new(py, "abc"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some((2, 8))
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some()
             );
             assert!(
                 multi_fm_index
@@ -993,20 +1002,28 @@ mod tests {
                     .is_ok()
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0, 1]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, "abc"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, "abc"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1025,12 +1042,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 1, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1077,7 +1098,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)",
+                "MultiFMIndex(num_docs=3, total_num_chars=27, num_unique_chars=4, code_unit=ucs2)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1164,16 +1185,20 @@ mod tests {
                 collections::HashMap::<usize, usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![9, 6, 3, 0, 7, 4, 1, 8, 5, 2]),
-                    (1, vec![10, 9, 8, 0, 1, 5, 2, 6, 3, 7, 4]),
-                    (2, vec![8, 3, 5, 0, 4, 6, 1, 7, 2])
-                ])
+                    (0, (0..10).collect()),
+                    (1, (0..11).collect()),
+                    (2, (0..9).collect())
+                ]),
             );
             assert_eq!(
                 multi_fm_index
@@ -1184,16 +1209,20 @@ mod tests {
                 collections::HashMap::<usize, Vec<usize>>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, "あいう"))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, "あいう"))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![6, 3, 0]),
-                    (1, vec![5, 2]),
-                    (2, vec![5, 0])
-                ])
+                    (0, vec![0, 3, 6]),
+                    (1, vec![2, 5]),
+                    (2, vec![0, 5])
+                ]),
             );
             assert_eq!(
                 multi_fm_index
@@ -1207,9 +1236,10 @@ mod tests {
                 .iter_locate(py, &PyString::new(py, "あいう"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some((2, 5))
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some()
             );
             assert!(
                 multi_fm_index
@@ -1222,12 +1252,16 @@ mod tests {
                     .is_ok()
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [1, 2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1238,12 +1272,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, "あいう"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, "あいう"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1254,12 +1292,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0, 1]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1270,12 +1312,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, "あいう"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, "あいう"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1306,7 +1352,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=19, num_unique_chars=3, code_unit=ucs4)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1393,16 +1439,20 @@ mod tests {
                 collections::HashMap::<usize, usize>::from([(0, 2), (1, 1), (2, 1)])
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![6, 4, 2, 0, 5, 3, 1]),
-                    (1, vec![8, 7, 6, 0, 1, 4, 2, 5, 3]),
-                    (2, vec![5, 2, 3, 0, 4, 1])
-                ])
+                    (0, (0..7).collect()),
+                    (1, (0..9).collect()),
+                    (2, (0..6).collect())
+                ]),
             );
             assert_eq!(
                 multi_fm_index
@@ -1421,24 +1471,29 @@ mod tests {
                 collections::HashMap::<usize, Vec<usize>>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, "😀😃😀"))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, "😀😃😀"))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![2, 0]),
+                    (0, vec![0, 2]),
                     (1, vec![2]),
                     (2, vec![0])
-                ])
+                ]),
             );
             let iter_locate = multi_fm_index
                 .iter_locate(py, &PyString::new(py, "😀😃😀"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some((2, 0))
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some()
             );
             assert!(
                 multi_fm_index
@@ -1451,12 +1506,16 @@ mod tests {
                     .is_ok()
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [1, 2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1475,20 +1534,28 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, "😀😃😀"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, "😀😃😀"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0, 1]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index
@@ -1507,12 +1574,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, "😀😃"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, "😀😃"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
         });
     }
@@ -1535,7 +1606,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=35, code_unit=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=35, num_unique_chars=6, code_unit=ucs4)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1584,52 +1655,72 @@ mod tests {
                 collections::HashMap::<usize, usize>::from([(0, 2), (1, 1), (2, 1)])
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![14, 12, 5, 10, 3, 8, 1, 13, 6, 11, 4, 7, 0, 9, 2]),
-                    (1, vec![11, 10, 9, 0, 1, 7, 5, 3, 8, 6, 2, 4]),
-                    (2, vec![10, 5, 8, 3, 1, 6, 9, 4, 7, 0, 2])
-                ])
+                    (0, (0..15).collect()),
+                    (1, (0..12).collect()),
+                    (2, (0..11).collect())
+                ]),
             );
             assert_eq!(
-                multi_fm_index
-                    .locate(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
-                    .unwrap()
-                    .extract::<collections::HashMap<_, _>>(py)
-                    .unwrap(),
+                {
+                    let mut sorted = multi_fm_index
+                        .locate(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
+                        .unwrap()
+                        .extract::<collections::HashMap<_, Vec<_>>>(py)
+                        .unwrap();
+                    sorted.values_mut().for_each(|v| v.sort());
+                    sorted
+                },
                 collections::HashMap::<usize, Vec<usize>>::from([
-                    (0, vec![7, 0]),
+                    (0, vec![0, 7]),
                     (1, vec![2]),
                     (2, vec![0])
-                ])
+                ]),
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [1, 2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
-                multi_fm_index
-                    .startswith(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0]
+                {
+                    let mut sorted = multi_fm_index
+                        .startswith(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 2]
             );
             assert_eq!(
-                multi_fm_index
-                    .endswith(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [2, 0, 1]
+                {
+                    let mut sorted = multi_fm_index
+                        .endswith(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 1, 2]
             );
             assert_eq!(
                 multi_fm_index

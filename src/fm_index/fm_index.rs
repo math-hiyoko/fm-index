@@ -1,11 +1,11 @@
-use std::{hash, iter, ops};
+use std::{collections, hash, iter, ops};
 
 use num_traits::{PrimInt, Unsigned};
 use pyo3::PyResult;
 use rayon::prelude::*;
 
 use super::base_fm_index::BaseFMIndex;
-use crate::utils::bit_width::BitWidth;
+use crate::utils::{bit_width::BitWidth, suffix_array::suffix_array_option};
 
 #[derive(Clone)]
 pub(crate) struct FMIndex<
@@ -21,13 +21,33 @@ impl<
 {
     pub(crate) fn new(data: Vec<Element>) -> PyResult<Self> {
         let len = data.len();
+
         let data = data
             .into_iter()
             .map(|symbol| Some(symbol))
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let base_fm_index = BaseFMIndex::new(data)?;
-        Ok(FMIndex { len, base_fm_index })
+
+        let value_index = data
+            .iter()
+            .flatten()
+            .cloned()
+            .collect::<collections::HashSet<_>>()
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (value, Element::from(index).unwrap()))
+            .collect::<collections::HashMap<_, _>>();
+
+        let data_mapped = data
+            .into_iter()
+            .map(|value| value.map(|value| value_index[&value]))
+            .collect::<Vec<_>>();
+
+        let suffix_idx = suffix_array_option(&data_mapped);
+
+        let base_fm_index = BaseFMIndex::new(data_mapped, value_index, suffix_idx)?;
+
+        Ok(Self { len, base_fm_index })
     }
 
     #[inline]
@@ -50,8 +70,8 @@ impl<
         Ok(self.len)
     }
 
-    pub(crate) fn max_bit(&self) -> PyResult<usize> {
-        self.base_fm_index.burrows_wheeler_transform().max_bit()
+    pub(crate) fn num_unique_chars(&self) -> PyResult<usize> {
+        self.base_fm_index.num_unique_chars()
     }
 
     pub(crate) fn values(&self) -> PyResult<Vec<Element>> {
@@ -148,8 +168,12 @@ mod tests {
         assert!(fm_index.contains(b"a".to_vec()).unwrap());
         assert_eq!(fm_index.count(b"a".to_vec()).unwrap(), 10);
         assert_eq!(
-            fm_index.locate(b"a".to_vec()).unwrap(),
-            [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+            {
+                let mut sorted = fm_index.locate(b"a".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            (0..10).collect::<Vec<_>>(),
         );
         assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(fm_index.starts_with(b"aa".to_vec()).unwrap());
@@ -169,7 +193,14 @@ mod tests {
         assert!(fm_index.contains(vec![]).unwrap());
         assert!(fm_index.contains(b"is".to_vec()).unwrap());
         assert_eq!(fm_index.count(b"is".to_vec()).unwrap(), 2);
-        assert_eq!(fm_index.locate(b"is".to_vec()).unwrap(), [4, 1]);
+        assert_eq!(
+            {
+                let mut sorted = fm_index.locate(b"is".to_vec()).unwrap();
+                sorted.sort();
+                sorted
+            },
+            [1, 4],
+        );
         assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(fm_index.starts_with(b"mi".to_vec()).unwrap());
         assert!(!fm_index.starts_with(b"si".to_vec()).unwrap());
@@ -199,10 +230,14 @@ mod tests {
             3
         );
         assert_eq!(
-            fm_index
-                .locate(['に' as u32, 'わ' as u32].to_vec())
-                .unwrap(),
-            [6, 0, 4]
+            {
+                let mut sorted = fm_index
+                    .locate(['に' as u32, 'わ' as u32].to_vec())
+                    .unwrap();
+                sorted.sort();
+                sorted
+            },
+            [0, 4, 6]
         );
         assert!(fm_index.starts_with(vec![]).unwrap());
         assert!(

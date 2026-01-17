@@ -74,7 +74,7 @@ impl<
                 begin_index.entry(value).or_insert(index);
             });
 
-        Ok(WaveletMatrix {
+        Ok(Self {
             len,
             is_none,
             height,
@@ -82,10 +82,6 @@ impl<
             zeros,
             begin_index,
         })
-    }
-
-    pub(crate) fn max_bit(&self) -> PyResult<usize> {
-        Ok(self.height)
     }
 
     /// Get the value at the specified position.

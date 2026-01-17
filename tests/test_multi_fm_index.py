@@ -51,23 +51,23 @@ def test_str(
 ):
     assert (
         str(multi_fm_index_empty)
-        == "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)"
+        == "MultiFMIndex(num_docs=0, total_num_chars=0, num_unique_chars=0, code_unit=ucs1)"
     )
     assert (
         str(multi_fm_index_empties)
-        == "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=0, num_unique_chars=0, code_unit=ucs1)"
     )
     assert (
         str(multi_fm_index_ucs1)
-        == "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=36, num_unique_chars=4, code_unit=ucs1)"
     )
     assert (
         str(multi_fm_index_ucs2)
-        == "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=27, num_unique_chars=4, code_unit=ucs2)"
     )
     assert (
         str(multi_fm_index_ucs4)
-        == "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)"
+        == "MultiFMIndex(num_docs=3, total_num_chars=19, num_unique_chars=3, code_unit=ucs4)"
     )
 
 
@@ -162,18 +162,27 @@ def test_locate(
 ):
     assert multi_fm_index_empty.locate("") == {}
     assert multi_fm_index_empties.locate("") == {0: [0], 1: [0], 2: [0]}
-    assert multi_fm_index_ucs1.locate("abc") == {
-        0: [9, 6, 3, 0],
-        1: [10, 2, 5],
-        2: [8, 0, 5],
+    assert {
+        key: sorted(value)
+        for key, value in multi_fm_index_ucs1.locate("abc").items()
+    } == {
+        0: [0, 3, 6, 9],
+        1: [2, 5, 10],
+        2: [0, 5, 8],
     }
-    assert multi_fm_index_ucs2.locate("あいう") == {
-        0: [6, 3, 0],
-        1: [5, 2],
-        2: [5, 0],
+    assert {
+        key: sorted(value)
+        for key, value in multi_fm_index_ucs2.locate("あいう").items()
+    } == {
+        0: [0, 3, 6],
+        1: [2, 5],
+        2: [0, 5],
     }
-    assert multi_fm_index_ucs4.locate("😀😃😀") == {
-        0: [2, 0],
+    assert {
+        key: sorted(value)
+        for key, value in multi_fm_index_ucs4.locate("😀😃😀").items()
+    } == {
+        0: [0, 2],
         1: [2],
         2: [0],
     }
@@ -187,33 +196,33 @@ def test_iter_locate(
     multi_fm_index_ucs4,
 ):
     assert list(multi_fm_index_empty.iter_locate("")) == []
-    assert list(multi_fm_index_empties.iter_locate("")) == [(2, 0), (1, 0), (0, 0)]
-    assert list(multi_fm_index_ucs1.iter_locate("abc")) == [
-        (2, 8),
-        (1, 10),
+    assert sorted(multi_fm_index_empties.iter_locate("")) == [(0, 0), (1, 0), (2, 0)]
+    assert sorted(multi_fm_index_ucs1.iter_locate("abc")) == [
+        (0, 0),
+        (0, 3),
+        (0, 6),
         (0, 9),
-        (2, 0),
-        (2, 5),
-        (0, 6),
-        (0, 3),
-        (0, 0),
         (1, 2),
         (1, 5),
-    ]
-    assert list(multi_fm_index_ucs2.iter_locate("あいう")) == [
+        (1, 10),
+        (2, 0),
         (2, 5),
+        (2, 8),
+    ]
+    assert sorted(multi_fm_index_ucs2.iter_locate("あいう")) == [
+        (0, 0),
+        (0, 3),
         (0, 6),
+        (1, 2),
         (1, 5),
         (2, 0),
-        (0, 3),
-        (1, 2),
-        (0, 0),
+        (2, 5),
     ]
-    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀")) == [
-        (2, 0),
+    assert sorted(multi_fm_index_ucs4.iter_locate("😀😃😀")) == [
+        (0, 0),
         (0, 2),
         (1, 2),
-        (0, 0),
+        (2, 0),
     ]
 
 
@@ -225,10 +234,10 @@ def test_startswith(
     multi_fm_index_ucs4,
 ):
     assert multi_fm_index_empty.startswith("") == []
-    assert multi_fm_index_empties.startswith("") == [2, 1, 0]
-    assert multi_fm_index_ucs1.startswith("abc") == [2, 0]
-    assert multi_fm_index_ucs2.startswith("あいう") == [2, 0]
-    assert multi_fm_index_ucs4.startswith("😀😃😀") == [2, 0]
+    assert sorted(multi_fm_index_empties.startswith("")) == [0, 1, 2]
+    assert sorted(multi_fm_index_ucs1.startswith("abc")) == [0, 2]
+    assert sorted(multi_fm_index_ucs2.startswith("あいう")) == [0, 2]
+    assert sorted(multi_fm_index_ucs4.startswith("😀😃😀")) == [0, 2]
 
 
 def test_endswith(
@@ -239,10 +248,10 @@ def test_endswith(
     multi_fm_index_ucs4,
 ):
     assert multi_fm_index_empty.endswith("") == []
-    assert multi_fm_index_empties.endswith("") == [2, 1, 0]
-    assert multi_fm_index_ucs1.endswith("abc") == [2, 1, 0]
-    assert multi_fm_index_ucs2.endswith("あいう") == [2, 0]
-    assert multi_fm_index_ucs4.endswith("😀😃") == [2, 0]
+    assert sorted(multi_fm_index_empties.endswith("")) == [0, 1, 2]
+    assert sorted(multi_fm_index_ucs1.endswith("abc")) == [0, 1, 2]
+    assert sorted(multi_fm_index_ucs2.endswith("あいう")) == [0, 2]
+    assert sorted(multi_fm_index_ucs4.endswith("😀😃")) == [0, 2]
 
 
 def test_large_texts():

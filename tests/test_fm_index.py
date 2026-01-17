@@ -31,10 +31,10 @@ def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 
 def test_str(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
-    assert str(fm_index_empty) == "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
-    assert str(fm_index_ucs1) == "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
-    assert str(fm_index_ucs2) == "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
-    assert str(fm_index_ucs4) == "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
+    assert str(fm_index_empty) == "FMIndex(len=0, num_unique_chars=0, code_unit=ucs1)"
+    assert str(fm_index_ucs1) == "FMIndex(len=11, num_unique_chars=4, code_unit=ucs1)"
+    assert str(fm_index_ucs2) == "FMIndex(len=13, num_unique_chars=8, code_unit=ucs2)"
+    assert str(fm_index_ucs4) == "FMIndex(len=15, num_unique_chars=7, code_unit=ucs4)"
 
 
 def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
@@ -73,16 +73,16 @@ def test_count(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 def test_locate(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert fm_index_empty.locate("") == [0]
-    assert fm_index_ucs1.locate("issi") == [4, 1]
-    assert fm_index_ucs2.locate("にわ") == [6, 0, 4]
-    assert fm_index_ucs4.locate("🐉🔥🌊") == [12, 6, 1]
+    assert sorted(fm_index_ucs1.locate("issi")) == [1, 4]
+    assert sorted(fm_index_ucs2.locate("にわ")) == [0, 4, 6]
+    assert sorted(fm_index_ucs4.locate("🐉🔥🌊")) == [1, 6, 12]
 
 
 def test_iter_locate(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
     assert list(fm_index_empty.iter_locate("")) == [0]
-    assert list(fm_index_ucs1.iter_locate("issi")) == [4, 1]
-    assert list(fm_index_ucs2.iter_locate("にわ")) == [6, 0, 4]
-    assert list(fm_index_ucs4.iter_locate("🐉🔥🌊")) == [12, 6, 1]
+    assert sorted(fm_index_ucs1.iter_locate("issi")) == [1, 4]
+    assert sorted(fm_index_ucs2.iter_locate("にわ")) == [0, 4, 6]
+    assert sorted(fm_index_ucs4.iter_locate("🐉🔥🌊")) == [1, 6, 12]
 
 
 def test_startswith(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):

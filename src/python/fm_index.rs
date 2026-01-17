@@ -77,7 +77,7 @@ enum FMIndexEnum {
 ///
 /// where:
 /// - `N` = length of the indexed string
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
+/// - `σ` = number of unique characters in the input
 ///
 /// ```python
 /// from fm_index import FMIndex
@@ -125,14 +125,14 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (len, code_unit, max_bit) = py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => (fm_index.len(), "ucs1", fm_index.max_bit()),
-            FMIndexEnum::U16(fm_index) => (fm_index.len(), "ucs2", fm_index.max_bit()),
-            FMIndexEnum::U32(fm_index) => (fm_index.len(), "ucs4", fm_index.max_bit()),
+        let (len, num_unique_chars, code_unit) = py.detach(move || match &self.inner {
+            FMIndexEnum::U8(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs1"),
+            FMIndexEnum::U16(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs2"),
+            FMIndexEnum::U32(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs4"),
         });
         let result = format!(
-            "FMIndex(len={}, code_unit={}, max_bit={})",
-            len?, code_unit, max_bit?,
+            "FMIndex(len={}, num_unique_chars={}, code_unit={})",
+            len?, num_unique_chars?, code_unit,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -438,10 +438,6 @@ impl PyFMIndex {
     /// - Time: `O(|suffix| log σ)`
     /// - Space: `O(|suffix|)`
     ///
-    /// where:
-    /// - `|suffix|` = length of the suffix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
     /// fm.endswith("pi")
@@ -497,7 +493,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
+                "FMIndex(len=0, num_unique_chars=0, code_unit=ucs1)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -560,7 +556,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
+                "FMIndex(len=11, num_unique_chars=4, code_unit=ucs1)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -572,20 +568,28 @@ mod tests {
             assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 0);
             assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 0);
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [11, 10, 7, 4, 1, 0, 9, 8, 6, 3, 5, 2]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                (0..12).collect::<Vec<_>>(),
             );
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, "issi"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [4, 1]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, "issi"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [1, 4],
             );
             assert_eq!(
                 fm_index
@@ -607,9 +611,10 @@ mod tests {
                 .iter_locate(py, &PyString::new(py, "issi"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some(4)
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some(),
             );
             assert!(fm_index.iter_locate(py, &PyString::new(py, "にわ")).is_ok());
             assert!(
@@ -652,7 +657,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
+                "FMIndex(len=13, num_unique_chars=8, code_unit=ucs2)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
@@ -679,12 +684,16 @@ mod tests {
             assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 3);
             assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 0);
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [13, 11, 10, 8, 2, 6, 0, 4, 3, 9, 12, 7, 1, 5]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                (0..14).collect::<Vec<_>>(),
             );
             assert_eq!(
                 fm_index
@@ -695,12 +704,16 @@ mod tests {
                 Vec::<usize>::new()
             );
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, "にわ"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [6, 0, 4]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, "にわ"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 4, 6],
             );
             assert_eq!(
                 fm_index
@@ -714,9 +727,10 @@ mod tests {
                 .iter_locate(py, &PyString::new(py, "にわ"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some(6)
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some()
             );
             assert!(fm_index.iter_locate(py, &PyString::new(py, "issi")).is_ok());
             assert!(
@@ -769,7 +783,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=15, num_unique_chars=7, code_unit=ucs4)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -781,12 +795,16 @@ mod tests {
             assert_eq!(fm_index.count(py, &PyString::new(py, "にわ")).unwrap(), 0);
             assert_eq!(fm_index.count(py, &PyString::new(py, "🐉🔥🌊")).unwrap(), 3);
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [15, 9, 5, 10, 11, 14, 8, 3, 4, 0, 12, 6, 1, 13, 7, 2]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                (0..16).collect::<Vec<_>>(),
             ); // "⚔️" counts as 2 letters
             assert_eq!(
                 fm_index
@@ -805,20 +823,25 @@ mod tests {
                 Vec::<usize>::new(),
             ); // "⚔️" counts as 2 letters
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, "🐉🔥🌊"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [12, 6, 1],
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, "🐉🔥🌊"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [1, 6, 12],
             ); // "⚔️" counts as 2 letters
             let iter_locate = fm_index
                 .iter_locate(py, &PyString::new(py, "🐉🔥"))
                 .unwrap();
             let py_iter = Py::new(py, iter_locate).unwrap();
-            assert_eq!(
-                IterLocate::__next__(py_iter.borrow_mut(py), py).unwrap(),
-                Some(12)
+            assert!(
+                IterLocate::__next__(py_iter.borrow_mut(py), py)
+                    .unwrap()
+                    .is_some()
             );
             assert!(fm_index.iter_locate(py, &PyString::new(py, "issi")).is_ok());
             assert!(fm_index.iter_locate(py, &PyString::new(py, "にわ")).is_ok());
@@ -858,7 +881,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=35, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=35, num_unique_chars=6, code_unit=ucs4)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -868,23 +891,28 @@ mod tests {
             assert_eq!(fm_index.count(py, &PyString::new(py, "")).unwrap(), 36);
             assert_eq!(fm_index.count(py, &PyString::new(py, "👨‍👩‍👧‍👦")).unwrap(), 4);
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, ""))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [
-                    35, 14, 23, 15, 24, 12, 21, 30, 5, 33, 10, 19, 28, 3, 8, 17, 26, 1, 13, 22, 31,
-                    6, 34, 11, 20, 29, 4, 32, 7, 16, 25, 0, 9, 18, 27, 2
-                ]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, ""))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                (0..36).collect::<Vec<_>>(),
             );
             assert_eq!(
-                fm_index
-                    .locate(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
-                    .unwrap()
-                    .extract::<Vec<usize>>(py)
-                    .unwrap(),
-                [7, 16, 25, 0]
+                {
+                    let mut sorted = fm_index
+                        .locate(py, &PyString::new(py, "👨‍👩‍👧‍👦"))
+                        .unwrap()
+                        .extract::<Vec<usize>>(py)
+                        .unwrap();
+                    sorted.sort();
+                    sorted
+                },
+                [0, 7, 16, 25]
             );
             assert!(fm_index.startswith(py, &PyString::new(py, "")).unwrap());
             assert!(fm_index.startswith(py, &PyString::new(py, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦")).unwrap());
