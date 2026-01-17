@@ -36,7 +36,7 @@ allowing fast substring search without scanning the original data.
 
 ### Construction Complexity
 - Time / Space: `O(|data| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2). 
+- σ = number of unique characters in the input　　
 
 #### Example
 
@@ -91,7 +91,7 @@ making multi-document search efficient in practice.
 
 ### Construction Complexity
 - Time / Space: `O(|''.join(data)| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2).   
+- σ = number of unique characters in the input   
 
 ```python
 from fm_index import MultiFMIndex

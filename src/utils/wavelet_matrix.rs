@@ -13,6 +13,8 @@ use super::{bit_vector::BitVector, bit_width::BitWidth};
 pub(crate) struct WaveletMatrix<NumberType: PrimInt + Unsigned> {
     len: usize,
     is_none: BitVector,
+    unique_values: Vec<NumberType>,
+    values_index: collections::HashMap<NumberType, NumberType>,
     height: usize,
     layers: Vec<BitVector>,
     zeros: Vec<usize>,
@@ -27,7 +29,26 @@ impl<
 
         let is_none = BitVector::new(data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
 
-        let mut values_some = data.into_iter().flatten().collect::<Vec<_>>();
+        let values_some = data.into_iter().flatten().collect::<Vec<_>>();
+
+        let unique_values = values_some
+            .iter()
+            .cloned()
+            .collect::<collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        let values_index = unique_values
+            .iter()
+            .enumerate()
+            .map(|(index, &value)| (value, NumberType::from(index).unwrap()))
+            .collect::<collections::HashMap<_, _>>();
+
+        let mut values_some = values_some
+            .into_iter()
+            .map(|value| values_index[&value])
+            .collect::<Vec<NumberType>>();
+
         let height = values_some
             .par_iter()
             .max()
@@ -77,6 +98,8 @@ impl<
         Ok(WaveletMatrix {
             len,
             is_none,
+            unique_values,
+            values_index,
             height,
             layers,
             zeros,
@@ -84,8 +107,8 @@ impl<
         })
     }
 
-    pub(crate) fn max_bit(&self) -> PyResult<usize> {
-        Ok(self.height)
+    pub(crate) fn num_unique_values(&self) -> PyResult<usize> {
+        Ok(self.unique_values.len())
     }
 
     /// Get the value at the specified position.
@@ -111,6 +134,7 @@ impl<
             }
             debug_assert!(index <= layer.len());
         }
+        result = self.unique_values[result.to_usize().unwrap()];
 
         Ok(Some(result))
     }
@@ -144,6 +168,10 @@ impl<
                     debug_assert!(*index < layer.len());
                 });
         }
+        values_some = values_some
+            .into_iter()
+            .map(|value| self.unique_values[value.to_usize().unwrap()])
+            .collect::<Vec<NumberType>>();
 
         let is_none = self.is_none.values()?;
         let mut values = Vec::with_capacity(self.len);
@@ -170,13 +198,8 @@ impl<
         }
         end -= self.is_none.rank(true, end)?;
 
-        let value = value.unwrap();
-        if value.bit_width() > self.height {
-            return Ok(0usize);
-        }
-
-        let begin_index = match self.begin_index.get(&value) {
-            Some(&index) => index,
+        let value = match self.values_index.get(&value.unwrap()) {
+            Some(&mapped) => mapped,
             None => return Ok(0usize),
         };
 
@@ -190,6 +213,7 @@ impl<
             debug_assert!(end <= layer.len());
         }
 
+        let begin_index = self.begin_index[&value];
         debug_assert!(begin_index <= end);
         Ok(end - begin_index)
     }
@@ -203,17 +227,12 @@ impl<
             return self.is_none.select(true, kth);
         }
 
-        let value = value.unwrap();
-        if value.bit_width() > self.height {
-            return Ok(None);
-        }
-
-        let begin_index = match self.begin_index.get(&value) {
-            Some(&index) => index,
+        let value = match self.values_index.get(&value.unwrap()) {
+            Some(&mapped) => mapped,
             None => return Ok(None),
         };
 
-        let mut index = begin_index + kth - 1;
+        let mut index = self.begin_index[&value] + kth - 1;
         for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate().rev() {
             let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {

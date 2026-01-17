@@ -77,7 +77,7 @@ enum FMIndexEnum {
 ///
 /// where:
 /// - `N` = length of the indexed string
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
+/// - `σ` = number of unique characters in the input
 ///
 /// ```python
 /// from fm_index import FMIndex
@@ -125,14 +125,14 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (len, code_unit, max_bit) = py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => (fm_index.len(), "ucs1", fm_index.max_bit()),
-            FMIndexEnum::U16(fm_index) => (fm_index.len(), "ucs2", fm_index.max_bit()),
-            FMIndexEnum::U32(fm_index) => (fm_index.len(), "ucs4", fm_index.max_bit()),
+        let (len, num_unique_chars, code_unit) = py.detach(move || match &self.inner {
+            FMIndexEnum::U8(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs1"),
+            FMIndexEnum::U16(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs2"),
+            FMIndexEnum::U32(fm_index) => (fm_index.len(), fm_index.num_unique_chars(), "ucs4"),
         });
         let result = format!(
-            "FMIndex(len={}, code_unit={}, max_bit={})",
-            len?, code_unit, max_bit?,
+            "FMIndex(len={}, num_unique_chars={}, code_unit={})",
+            len?, num_unique_chars?, code_unit,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -438,10 +438,6 @@ impl PyFMIndex {
     /// - Time: `O(|suffix| log σ)`
     /// - Space: `O(|suffix|)`
     ///
-    /// where:
-    /// - `|suffix|` = length of the suffix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
-    ///
     /// #### Examples
     /// ```python
     /// fm.endswith("pi")
@@ -497,7 +493,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
+                "FMIndex(len=0, num_unique_chars=0, code_unit=ucs1)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -560,7 +556,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
+                "FMIndex(len=11, num_unique_chars=4, code_unit=ucs1)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -652,7 +648,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
+                "FMIndex(len=13, num_unique_chars=8, code_unit=ucs2)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
@@ -769,7 +765,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=15, num_unique_chars=7, code_unit=ucs4)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -858,7 +854,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=35, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=35, num_unique_chars=6, code_unit=ucs4)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(

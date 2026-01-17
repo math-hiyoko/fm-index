@@ -118,8 +118,10 @@ impl<
         Ok(self.total_num_chars)
     }
 
-    pub(crate) fn max_bit(&self) -> PyResult<usize> {
-        self.base_fm_index.burrows_wheeler_transform().max_bit()
+    pub(crate) fn num_unique_chars(&self) -> PyResult<usize> {
+        self.base_fm_index
+            .burrows_wheeler_transform()
+            .num_unique_values()
     }
 
     pub(crate) fn values(&self) -> PyResult<Vec<Vec<Element>>> {
