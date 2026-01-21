@@ -3,7 +3,7 @@ use std::sync;
 use pyo3::{
     PyResult,
     prelude::*,
-    types::{PyList, PyString, PyStringData, PyStringMethods},
+    types::{PyList, PyString, PyStringMethods},
 };
 
 use crate::fm_index::fm_index::{fm_index_enum::FMIndexEnum, iter_locate::IterLocate};

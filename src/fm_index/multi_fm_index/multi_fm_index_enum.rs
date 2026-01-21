@@ -1,10 +1,6 @@
 use std::{collections, sync};
 
-use pyo3::{
-    Bound, PyResult,
-    exceptions::{PyTypeError, PyUnicodeDecodeError},
-    types::{PyAnyMethods, PySequence, PyString, PyStringData, PyStringMethods},
-};
+use pyo3::{PyResult, exceptions::PyUnicodeDecodeError, types::PyStringData};
 use rayon::prelude::*;
 
 use super::{multi_fm_index::MultiFMIndex, string_data::StringData};
