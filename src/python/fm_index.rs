@@ -1,66 +1,12 @@
-use std::{char, sync};
+use std::sync;
 
 use pyo3::{
     PyResult,
-    exceptions::PyUnicodeDecodeError,
     prelude::*,
     types::{PyList, PyString, PyStringData, PyStringMethods},
 };
-use rayon::prelude::*;
 
-use crate::fm_index::fm_index::FMIndex;
-
-enum IterLocateFMIndexEnum {
-    U8(sync::Arc<FMIndex<u8>>),
-    U16(sync::Arc<FMIndex<u16>>),
-    U32(sync::Arc<FMIndex<u32>>),
-}
-
-#[pyclass]
-struct IterLocate {
-    k: usize,
-    end: usize,
-    fm_index: sync::Arc<IterLocateFMIndexEnum>,
-}
-
-impl IterLocate {
-    fn new(fm_index: IterLocateFMIndexEnum, start: usize, end: usize) -> Self {
-        IterLocate {
-            k: start,
-            end,
-            fm_index: sync::Arc::new(fm_index),
-        }
-    }
-}
-
-#[pymethods]
-impl IterLocate {
-    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-        slf
-    }
-
-    fn __next__(mut slf: PyRefMut<Self>, py: Python<'_>) -> PyResult<Option<usize>> {
-        if slf.k >= slf.end {
-            return Ok(None);
-        }
-        let k = slf.k;
-        let fm_index = sync::Arc::clone(&slf.fm_index);
-        let result = py.detach(move || match &*fm_index {
-            IterLocateFMIndexEnum::U8(fm_index) => fm_index.suffix_idx(k),
-            IterLocateFMIndexEnum::U16(fm_index) => fm_index.suffix_idx(k),
-            IterLocateFMIndexEnum::U32(fm_index) => fm_index.suffix_idx(k),
-        })?;
-        slf.k += 1;
-        Ok(Some(result))
-    }
-}
-
-#[derive(Clone)]
-enum FMIndexEnum {
-    U8(sync::Arc<FMIndex<u8>>),
-    U16(sync::Arc<FMIndex<u16>>),
-    U32(sync::Arc<FMIndex<u32>>),
-}
+use crate::fm_index::fm_index::{fm_index_enum::FMIndexEnum, iter_locate::IterLocate};
 
 /// An FM-index for efficient full-text search on a single string.
 ///
@@ -97,27 +43,13 @@ impl PyFMIndex {
     fn new(py: Python<'_>, data: &Bound<'_, PyString>) -> PyResult<Self> {
         let data = unsafe { data.data()? };
         py.detach(move || {
-            let fm_index = match data {
-                PyStringData::Ucs1(data) => {
-                    FMIndexEnum::U8(sync::Arc::new(FMIndex::new(data.to_vec())?))
-                }
-                PyStringData::Ucs2(data) => {
-                    FMIndexEnum::U16(sync::Arc::new(FMIndex::new(data.to_vec())?))
-                }
-                PyStringData::Ucs4(data) => {
-                    FMIndexEnum::U32(sync::Arc::new(FMIndex::new(data.to_vec())?))
-                }
-            };
-            Ok(PyFMIndex { inner: fm_index })
+            let inner = FMIndexEnum::new(data)?;
+            Ok(PyFMIndex { inner })
         })
     }
 
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => fm_index.len(),
-            FMIndexEnum::U16(fm_index) => fm_index.len(),
-            FMIndexEnum::U32(fm_index) => fm_index.len(),
-        })
+        py.detach(|| self.inner.len())
     }
 
     fn __contains__(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
@@ -125,14 +57,19 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (len, code_unit, max_bit) = py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => (fm_index.len(), "ucs1", fm_index.max_bit()),
-            FMIndexEnum::U16(fm_index) => (fm_index.len(), "ucs2", fm_index.max_bit()),
-            FMIndexEnum::U32(fm_index) => (fm_index.len(), "ucs4", fm_index.max_bit()),
-        });
+        let (len, code_unit, max_bit) = py.detach(|| -> PyResult<(usize, &str, usize)> {
+            let len = self.inner.len()?;
+            let code_unit = match &self.inner {
+                FMIndexEnum::Ucs1(_) => "ucs1",
+                FMIndexEnum::Ucs2(_) => "ucs2",
+                FMIndexEnum::Ucs4(_) => "ucs4",
+            };
+            let max_bit = self.inner.max_bit()?;
+            Ok((len, code_unit, max_bit))
+        })?;
         let result = format!(
             "FMIndex(len={}, code_unit={}, max_bit={})",
-            len?, code_unit, max_bit?,
+            len, code_unit, max_bit,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -162,29 +99,8 @@ impl PyFMIndex {
     /// # 'mississippi'
     /// ```
     fn item(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let values = py.detach(move || fm_index.values())?;
-                Ok(PyString::from_bytes(py, &values)?.into())
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let str = py.detach(move || {
-                    let values = fm_index.values()?;
-                    String::from_utf16(&values).map_err(PyUnicodeDecodeError::new_err)
-                })?;
-                Ok(PyString::new(py, &str).into())
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let str = py.detach(move || -> PyResult<String> {
-                    let values = fm_index.values()?;
-                    Ok(values
-                        .into_par_iter()
-                        .map(|c| char::from_u32(c).unwrap_or('\u{FFFD}'))
-                        .collect::<String>())
-                })?;
-                Ok(PyString::new(py, &str).into())
-            }
-        }
+        let str = py.detach(|| self.inner.value())?;
+        Ok(PyString::new(py, &str).into())
     }
 
     /// Check whether the indexed string contains the given pattern.
@@ -201,31 +117,7 @@ impl PyFMIndex {
     /// ```
     fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
         let pattern = unsafe { pattern.data()? };
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.contains(pattern)
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.contains(pattern)
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                fm_index.contains(pattern)
-            }
-        })
+        py.detach(|| self.inner.contains(pattern))
     }
 
     /// Count how many times a pattern appears in the indexed string.
@@ -242,31 +134,7 @@ impl PyFMIndex {
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
         let pattern = unsafe { pattern.data()? };
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => return Ok(0usize),
-                };
-                fm_index.count(pattern)
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => return Ok(0usize),
-                };
-                fm_index.count(pattern)
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                fm_index.count(pattern)
-            }
-        })
+        py.detach(|| self.inner.count(pattern))
     }
 
     /// Locate all starting positions of the pattern in the indexed string.  
@@ -286,31 +154,7 @@ impl PyFMIndex {
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
         let pattern = unsafe { pattern.data()? };
-        let locate = py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => return PyResult::Ok(vec![]),
-                };
-                Ok(fm_index.locate(pattern)?)
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => return Ok(vec![]),
-                };
-                Ok(fm_index.locate(pattern)?)
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                Ok(fm_index.locate(pattern)?)
-            }
-        })?;
+        let locate = py.detach(|| self.inner.locate(pattern))?;
         Ok(PyList::new(py, &locate)?.unbind())
     }
 
@@ -336,58 +180,8 @@ impl PyFMIndex {
     /// ```
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
         let pattern = unsafe { pattern.data()? };
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => {
-                        return PyResult::Ok(IterLocate::new(
-                            IterLocateFMIndexEnum::U8(fm_index.clone()),
-                            0,
-                            0,
-                        ));
-                    }
-                };
-                let (start, end) = fm_index.range_search(pattern)?;
-                Ok(IterLocate::new(
-                    IterLocateFMIndexEnum::U8(fm_index.clone()),
-                    start,
-                    end,
-                ))
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => {
-                        return Ok(IterLocate::new(
-                            IterLocateFMIndexEnum::U16(fm_index.clone()),
-                            0,
-                            0,
-                        ));
-                    }
-                };
-                let (start, end) = fm_index.range_search(pattern)?;
-                Ok(IterLocate::new(
-                    IterLocateFMIndexEnum::U16(fm_index.clone()),
-                    start,
-                    end,
-                ))
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let pattern = match pattern {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                let (start, end) = fm_index.range_search(pattern)?;
-                Ok(IterLocate::new(
-                    IterLocateFMIndexEnum::U32(fm_index.clone()),
-                    start,
-                    end,
-                ))
-            }
-        })
+        let inner = self.inner.clone();
+        py.detach(move || IterLocate::new(sync::Arc::new(inner), pattern))
     }
 
     /// Check if the indexed string starts with the given prefix.
@@ -404,31 +198,7 @@ impl PyFMIndex {
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<bool> {
         let prefix = unsafe { prefix.data()? };
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let prefix = match prefix {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.starts_with(prefix)
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let prefix = match prefix {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.starts_with(prefix)
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let prefix = match prefix {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                fm_index.starts_with(prefix)
-            }
-        })
+        py.detach(|| self.inner.starts_with(prefix))
     }
 
     /// Check if the indexed string ends with the given suffix.
@@ -449,31 +219,7 @@ impl PyFMIndex {
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<bool> {
         let suffix = unsafe { suffix.data()? };
-        py.detach(move || match &self.inner {
-            FMIndexEnum::U8(fm_index) => {
-                let suffix = match suffix {
-                    PyStringData::Ucs1(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.ends_with(suffix)
-            }
-            FMIndexEnum::U16(fm_index) => {
-                let suffix = match suffix {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u16).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.to_vec(),
-                    _ => return Ok(false),
-                };
-                fm_index.ends_with(suffix)
-            }
-            FMIndexEnum::U32(fm_index) => {
-                let suffix = match suffix {
-                    PyStringData::Ucs1(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs2(data) => data.iter().map(|&c| c as u32).collect::<Vec<_>>(),
-                    PyStringData::Ucs4(data) => data.to_vec(),
-                };
-                fm_index.ends_with(suffix)
-            }
-        })
+        py.detach(|| self.inner.ends_with(suffix))
     }
 }
 

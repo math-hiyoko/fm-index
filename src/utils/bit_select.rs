@@ -156,30 +156,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bit_selec_u32() {
-        let x = 0b10110010010110001011001001011000u32;
-        assert_eq!(x.bit_select(true, 0), None);
-        assert_eq!(x.bit_select(true, 6), Some(13));
-        assert_eq!(x.bit_select(true, 15), None);
-        assert_eq!(x.bit_select(false, 0), None);
-        assert_eq!(x.bit_select(false, 15), Some(24));
-        assert_eq!(x.bit_select(false, 19), None);
-        let y = 0u32;
-        assert_eq!(y.bit_select(true, 1), None);
-        assert_eq!(y.bit_select(false, 1), Some(0));
+    fn test_bit_select_u32() {
+        let value = 0b10110010010110001011001001011000u32;
+
+        // Select with kth=0 should return None
+        assert_eq!(value.bit_select(true, 0), None);
+        assert_eq!(value.bit_select(false, 0), None);
+
+        // Valid selections
+        assert_eq!(value.bit_select(true, 6), Some(13));
+        assert_eq!(value.bit_select(false, 15), Some(24));
+
+        // Out of range selections
+        assert_eq!(value.bit_select(true, 15), None);
+        assert_eq!(value.bit_select(false, 19), None);
+
+        // Edge case: all zeros
+        let zero = 0u32;
+        assert_eq!(zero.bit_select(true, 1), None);
+        assert_eq!(zero.bit_select(false, 1), Some(0));
     }
 
     #[test]
-    fn test_bit_selec_u64() {
-        let x = 0b1011001001011000101100100101100010110010010110001011001001011000u64;
-        assert_eq!(x.bit_select(true, 0), None);
-        assert_eq!(x.bit_select(true, 20), Some(45));
-        assert_eq!(x.bit_select(true, 29), None);
-        assert_eq!(x.bit_select(false, 0), None);
-        assert_eq!(x.bit_select(false, 25), Some(42));
-        assert_eq!(x.bit_select(false, 37), None);
-        let y = 0u64;
-        assert_eq!(y.bit_select(true, 1), None);
-        assert_eq!(y.bit_select(false, 1), Some(0));
+    fn test_bit_select_u64() {
+        let value = 0b1011001001011000101100100101100010110010010110001011001001011000u64;
+
+        // Select with kth=0 should return None
+        assert_eq!(value.bit_select(true, 0), None);
+        assert_eq!(value.bit_select(false, 0), None);
+
+        // Valid selections
+        assert_eq!(value.bit_select(true, 20), Some(45));
+        assert_eq!(value.bit_select(false, 25), Some(42));
+
+        // Out of range selections
+        assert_eq!(value.bit_select(true, 29), None);
+        assert_eq!(value.bit_select(false, 37), None);
+
+        // Edge case: all zeros
+        let zero = 0u64;
+        assert_eq!(zero.bit_select(true, 1), None);
+        assert_eq!(zero.bit_select(false, 1), Some(0));
     }
 }

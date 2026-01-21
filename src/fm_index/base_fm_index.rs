@@ -8,7 +8,7 @@ use crate::utils::{
     bit_width::BitWidth, suffix_array::suffix_array_option, wavelet_matrix::WaveletMatrix,
 };
 
-pub(super) const SUFFIX_ARRAY_SAMPLING_RATE: usize = 32;
+pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
 
 #[derive(Clone)]
 pub(super) struct BaseFMIndex<
@@ -43,7 +43,7 @@ impl<
             .unwrap_or(0usize);
         let suffix_idx_sampled = suffix_idx
             .iter()
-            .step_by(SUFFIX_ARRAY_SAMPLING_RATE)
+            .step_by(ARRAY_SAMPLING_RATE)
             .copied()
             .collect::<Vec<_>>();
 
@@ -98,11 +98,11 @@ impl<
     #[inline]
     pub(super) fn suffix_idx(&self, mut index: usize) -> PyResult<usize> {
         let mut steps = 0usize;
-        while !index.is_multiple_of(SUFFIX_ARRAY_SAMPLING_RATE) {
+        while !index.is_multiple_of(ARRAY_SAMPLING_RATE) {
             index = self.lf_mapping(index)?;
             steps += 1;
         }
-        let suffix_idx_sampled = self.suffix_idx_sampled[index / SUFFIX_ARRAY_SAMPLING_RATE];
+        let suffix_idx_sampled = self.suffix_idx_sampled[index / ARRAY_SAMPLING_RATE];
         let mut idx = suffix_idx_sampled + steps;
         if idx >= self.len {
             idx -= self.len;

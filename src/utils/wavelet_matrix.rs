@@ -27,51 +27,51 @@ impl<
 
         let is_none = BitVector::new(data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
 
-        let mut values_some = data.into_iter().flatten().collect::<Vec<_>>();
-        let height = values_some
+        let mut current_values = data.into_iter().flatten().collect::<Vec<_>>();
+        let height = current_values
             .par_iter()
             .max()
             .unwrap_or(&NumberType::zero())
             .bit_width();
 
-        let mut zeros = Vec::with_capacity(height);
-        let mut bits = Vec::with_capacity(height);
-        for i in 0..height {
-            let layer_bits = values_some
+        let mut zeros_count_per_layer = Vec::with_capacity(height);
+        let mut layer_bits_vec = Vec::with_capacity(height);
+        for depth in 0..height {
+            let current_layer_bits = current_values
                 .par_iter()
-                .map(|&value| (value >> (height - i - 1) & NumberType::one()).is_one())
+                .map(|&value| (value >> (height - depth - 1) & NumberType::one()).is_one())
                 .collect::<Vec<_>>();
-            let num_zeros = layer_bits.par_iter().filter(|&bit| !bit).count();
+            let zeros_count = current_layer_bits.par_iter().filter(|&bit| !bit).count();
 
-            let mut next_values = vec![NumberType::zero(); values_some.len()];
-            let mut zero_index = 0usize;
-            let mut one_index = num_zeros;
-            for (&bit, value) in iter::zip(&layer_bits, values_some) {
+            let mut reordered_values = vec![NumberType::zero(); current_values.len()];
+            let mut zeros_write_pos = 0usize;
+            let mut ones_write_pos = zeros_count;
+            for (&bit, value) in iter::zip(&current_layer_bits, current_values) {
                 if bit {
-                    next_values[one_index] = value;
-                    one_index += 1;
+                    reordered_values[ones_write_pos] = value;
+                    ones_write_pos += 1;
                 } else {
-                    next_values[zero_index] = value;
-                    zero_index += 1;
+                    reordered_values[zeros_write_pos] = value;
+                    zeros_write_pos += 1;
                 }
             }
 
-            zeros.push(num_zeros);
-            bits.push(layer_bits);
-            values_some = next_values;
+            zeros_count_per_layer.push(zeros_count);
+            layer_bits_vec.push(current_layer_bits);
+            current_values = reordered_values;
         }
 
-        let layers = bits
+        let layers = layer_bits_vec
             .into_par_iter()
             .map(BitVector::new)
             .collect::<PyResult<Vec<_>>>()?;
 
-        let mut begin_index = collections::HashMap::new();
-        values_some
+        let mut value_begin_positions = collections::HashMap::new();
+        current_values
             .into_iter()
             .enumerate()
-            .for_each(|(index, value)| {
-                begin_index.entry(value).or_insert(index);
+            .for_each(|(position, value)| {
+                value_begin_positions.entry(value).or_insert(position);
             });
 
         Ok(WaveletMatrix {
@@ -79,8 +79,8 @@ impl<
             is_none,
             height,
             layers,
-            zeros,
-            begin_index,
+            zeros: zeros_count_per_layer,
+            begin_index: value_begin_positions,
         })
     }
 
@@ -99,64 +99,64 @@ impl<
         }
 
         index -= self.is_none.rank(true, index)?;
-        let mut result = NumberType::zero();
-        for (layer, zero) in iter::zip(&self.layers, &self.zeros) {
+        let mut reconstructed_value = NumberType::zero();
+        for (layer, zeros_count) in iter::zip(&self.layers, &self.zeros) {
             let bit = layer.access(index)?;
-            result <<= NumberType::one();
+            reconstructed_value <<= NumberType::one();
             if bit {
-                result |= NumberType::one();
-                index = zero + layer.rank(bit, index)?;
+                reconstructed_value |= NumberType::one();
+                index = zeros_count + layer.rank(bit, index)?;
             } else {
                 index = layer.rank(bit, index)?;
             }
             debug_assert!(index <= layer.len());
         }
 
-        Ok(Some(result))
+        Ok(Some(reconstructed_value))
     }
 
     /// Get all values in the Wavelet Matrix as a vector.
     pub(crate) fn values(&self) -> PyResult<Vec<Option<NumberType>>> {
-        let num_some = self.is_none.rank(false, self.len)?;
-        let mut indices_some = (0..num_some).collect::<Vec<_>>();
-        let mut values_some = vec![NumberType::zero(); num_some];
-        for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate() {
-            debug_assert_eq!(num_some, layer.len());
-            let bits = layer.values()?;
-            let rank = iter::once([0usize; 2])
-                .chain(bits.iter().scan([0usize; 2], |acc, &bit| {
+        let non_none_count = self.is_none.rank(false, self.len)?;
+        let mut non_none_indices = (0..non_none_count).collect::<Vec<_>>();
+        let mut non_none_values = vec![NumberType::zero(); non_none_count];
+        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate() {
+            debug_assert_eq!(non_none_count, layer.len());
+            let layer_bits = layer.values()?;
+            let cumulative_rank = iter::once([0usize; 2])
+                .chain(layer_bits.iter().scan([0usize; 2], |acc, &bit| {
                     acc[bit as usize] += 1;
                     Some(*acc)
                 }))
                 .collect::<Vec<_>>();
-            indices_some
+            non_none_indices
                 .par_iter_mut()
-                .zip(values_some.par_iter_mut())
+                .zip(non_none_values.par_iter_mut())
                 .for_each(|(index, value)| {
-                    let bit = bits[*index];
+                    let bit = layer_bits[*index];
                     if bit {
                         *value |= NumberType::one() << (self.height - depth - 1);
-                        *index = zero + rank[*index][bit as usize];
+                        *index = zeros_count + cumulative_rank[*index][bit as usize];
                     } else {
-                        *index = rank[*index][bit as usize];
+                        *index = cumulative_rank[*index][bit as usize];
                     }
 
                     debug_assert!(*index < layer.len());
                 });
         }
 
-        let is_none = self.is_none.values()?;
-        let mut values = Vec::with_capacity(self.len);
-        let mut iter_some = values_some.iter();
-        for &is_none in is_none.iter() {
-            if is_none {
-                values.push(None);
+        let none_flags = self.is_none.values()?;
+        let mut result = Vec::with_capacity(self.len);
+        let mut non_none_iter = non_none_values.iter();
+        for &is_none_flag in none_flags.iter() {
+            if is_none_flag {
+                result.push(None);
             } else {
-                values.push(iter_some.next().copied());
+                result.push(non_none_iter.next().copied());
             }
         }
 
-        Ok(values)
+        Ok(result)
     }
 
     /// Count the number of occurrences of a value in the range [0, end).
@@ -175,23 +175,23 @@ impl<
             return Ok(0usize);
         }
 
-        let begin_index = match self.begin_index.get(&value) {
-            Some(&index) => index,
+        let value_start_pos = match self.begin_index.get(&value) {
+            Some(&pos) => pos,
             None => return Ok(0usize),
         };
 
-        for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate() {
+        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate() {
             let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
-                end = zero + layer.rank(bit, end)?;
+                end = zeros_count + layer.rank(bit, end)?;
             } else {
                 end = layer.rank(bit, end)?;
             }
             debug_assert!(end <= layer.len());
         }
 
-        debug_assert!(begin_index <= end);
-        Ok(end - begin_index)
+        debug_assert!(value_start_pos <= end);
+        Ok(end - value_start_pos)
     }
 
     /// Find the position of the k-th occurrence of a value (1-indexed).
@@ -208,19 +208,20 @@ impl<
             return Ok(None);
         }
 
-        let begin_index = match self.begin_index.get(&value) {
-            Some(&index) => index,
+        let value_start_pos = match self.begin_index.get(&value) {
+            Some(&pos) => pos,
             None => return Ok(None),
         };
 
-        let mut index = begin_index + kth - 1;
-        for (depth, (layer, zero)) in iter::zip(&self.layers, &self.zeros).enumerate().rev() {
+        let mut index = value_start_pos + kth - 1;
+        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate().rev()
+        {
             let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
-                index -= zero;
+                index -= zeros_count;
             }
             index = match layer.select(bit, index + 1)? {
-                Some(index) => index,
+                Some(idx) => idx,
                 None => return Ok(None),
             };
             debug_assert!(index < layer.len());
@@ -235,8 +236,8 @@ mod tests {
     use super::*;
     use pyo3::Python;
 
-    fn create_dummy() -> WaveletMatrix<u8> {
-        let elements = [
+    fn create_test_wavelet_matrix() -> WaveletMatrix<u8> {
+        let test_data = vec![
             Some(5),
             Some(4),
             None,
@@ -252,119 +253,134 @@ mod tests {
             Some(3),
             Some(5),
             Some(0),
-        ]
-        .to_vec();
-        WaveletMatrix::new(elements).unwrap()
+        ];
+        WaveletMatrix::new(test_data).unwrap()
     }
 
     #[test]
-    fn test_empty() {
+    fn test_empty_wavelet_matrix() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new(vec![]).unwrap();
+        let wm = WaveletMatrix::<u8>::new(vec![]).unwrap();
+
+        // Access should fail on empty matrix
         assert_eq!(
-            wv.access(0).unwrap_err().to_string(),
+            wm.access(0).unwrap_err().to_string(),
             "IndexError: index out of bounds"
         );
-        assert_eq!(wv.values().unwrap(), Vec::<Option<u8>>::new());
-        assert_eq!(wv.rank(Some(0u8), 0).unwrap(), 0);
-        assert_eq!(wv.rank(None, 0).unwrap(), 0);
+
+        // Values should return empty vector
+        assert_eq!(wm.values().unwrap(), Vec::<Option<u8>>::new());
+
+        // Rank should return 0
+        assert_eq!(wm.rank(Some(0u8), 0).unwrap(), 0);
+        assert_eq!(wm.rank(None, 0).unwrap(), 0);
+
+        // Select with kth=0 should fail
         assert_eq!(
-            wv.select(Some(0u8), 0).unwrap_err().to_string(),
+            wm.select(Some(0u8), 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
         assert_eq!(
-            wv.select(None, 0).unwrap_err().to_string(),
+            wm.select(None, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
     }
 
     #[test]
-    fn test_all_zero() {
+    fn test_all_zeros() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new([Some(0u8); 64].to_vec()).unwrap();
-        assert_eq!(wv.access(1).unwrap(), Some(0u8));
-        assert_eq!(wv.values().unwrap(), [Some(0u8); 64]);
-        assert_eq!(wv.rank(Some(0u8), 1).unwrap(), 1);
-        assert_eq!(wv.select(Some(0u8), 1).unwrap(), Some(0));
+        let wm = WaveletMatrix::<u8>::new(vec![Some(0u8); 64]).unwrap();
+
+        assert_eq!(wm.access(1).unwrap(), Some(0u8));
+        assert_eq!(wm.values().unwrap(), vec![Some(0u8); 64]);
+        assert_eq!(wm.rank(Some(0u8), 1).unwrap(), 1);
+        assert_eq!(wm.select(Some(0u8), 1).unwrap(), Some(0));
     }
 
     #[test]
-    fn test_all_none() {
+    fn test_all_none_values() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new([None; 64].to_vec()).unwrap();
-        assert_eq!(wv.access(1).unwrap(), None);
-        assert_eq!(wv.values().unwrap(), [None; 64]);
-        assert_eq!(wv.rank(None, 1).unwrap(), 1);
-        assert_eq!(wv.select(None, 1).unwrap(), Some(0));
+        let wm = WaveletMatrix::<u8>::new(vec![None; 64]).unwrap();
+
+        assert_eq!(wm.access(1).unwrap(), None);
+        assert_eq!(wm.values().unwrap(), vec![None; 64]);
+        assert_eq!(wm.rank(None, 1).unwrap(), 1);
+        assert_eq!(wm.select(None, 1).unwrap(), Some(0));
     }
 
     #[test]
-    fn test_max_value() {
+    fn test_maximum_value() {
         Python::initialize();
 
-        let wv = WaveletMatrix::<u8>::new([Some(u8::MAX); 64].to_vec()).unwrap();
-        assert_eq!(wv.access(1).unwrap(), Some(u8::MAX));
-        assert_eq!(wv.values().unwrap(), [Some(u8::MAX); 64]);
-        assert_eq!(wv.rank(Some(u8::MAX), 1).unwrap(), 1);
-        assert_eq!(wv.select(Some(u8::MAX), 1).unwrap(), Some(0));
+        let wm = WaveletMatrix::<u8>::new(vec![Some(u8::MAX); 64]).unwrap();
+
+        assert_eq!(wm.access(1).unwrap(), Some(u8::MAX));
+        assert_eq!(wm.values().unwrap(), vec![Some(u8::MAX); 64]);
+        assert_eq!(wm.rank(Some(u8::MAX), 1).unwrap(), 1);
+        assert_eq!(wm.select(Some(u8::MAX), 1).unwrap(), Some(0));
     }
 
     #[test]
-    fn test_access() {
+    fn test_access_operation() {
         Python::initialize();
 
-        let wv = create_dummy();
-        assert_eq!(wv.access(6).unwrap(), None);
-        assert_eq!(wv.access(7).unwrap(), Some(1u8));
+        let wm = create_test_wavelet_matrix();
+
+        assert_eq!(wm.access(6).unwrap(), None);
+        assert_eq!(wm.access(7).unwrap(), Some(1u8));
     }
 
     #[test]
-    fn test_values() {
+    fn test_values_retrieval() {
         Python::initialize();
 
-        let wv = create_dummy();
-        assert_eq!(
-            wv.values().unwrap(),
-            [
-                Some(5),
-                Some(4),
-                None,
-                Some(5),
-                Some(5),
-                Some(2),
-                None,
-                Some(1),
-                Some(5),
-                Some(6),
-                Some(1),
-                None,
-                Some(3),
-                Some(5),
-                Some(0)
-            ],
-        );
+        let wm = create_test_wavelet_matrix();
+
+        let expected = vec![
+            Some(5),
+            Some(4),
+            None,
+            Some(5),
+            Some(5),
+            Some(2),
+            None,
+            Some(1),
+            Some(5),
+            Some(6),
+            Some(1),
+            None,
+            Some(3),
+            Some(5),
+            Some(0),
+        ];
+        assert_eq!(wm.values().unwrap(), expected);
     }
 
     #[test]
-    fn test_rank() {
+    fn test_rank_operation() {
         Python::initialize();
 
-        let wv = create_dummy();
-        assert_eq!(wv.rank(Some(5u8), 11).unwrap(), 4usize);
-        assert_eq!(wv.rank(None, 11).unwrap(), 2usize);
+        let wm = create_test_wavelet_matrix();
+
+        assert_eq!(wm.rank(Some(5u8), 11).unwrap(), 4);
+        assert_eq!(wm.rank(None, 11).unwrap(), 2);
     }
 
     #[test]
-    fn test_select() {
+    fn test_select_operation() {
         Python::initialize();
 
-        let wv = create_dummy();
-        assert_eq!(wv.select(Some(5u8), 4).unwrap(), Some(8usize));
-        assert_eq!(wv.select(None, 3).unwrap(), Some(11usize));
-        assert_eq!(wv.select(Some(5u8), 6).unwrap(), None);
-        assert_eq!(wv.select(None, 6).unwrap(), None);
+        let wm = create_test_wavelet_matrix();
+
+        // Valid selections
+        assert_eq!(wm.select(Some(5u8), 4).unwrap(), Some(8));
+        assert_eq!(wm.select(None, 3).unwrap(), Some(11));
+
+        // Out of range selections
+        assert_eq!(wm.select(Some(5u8), 6).unwrap(), None);
+        assert_eq!(wm.select(None, 6).unwrap(), None);
     }
 }

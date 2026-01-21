@@ -176,34 +176,41 @@ mod tests {
 
     use super::BitVector;
 
-    fn create_dummy() -> BitVector {
+    fn create_test_bit_vector() -> BitVector {
         let bits = [true, false, true, true, false, true, false, false].repeat(999);
         BitVector::new(bits).unwrap()
     }
 
     #[test]
-    fn test_empty() {
+    fn test_empty_bit_vector() {
         Python::initialize();
 
-        let bv = BitVector::new([].to_vec()).unwrap();
+        let bv = BitVector::new(vec![]).unwrap();
 
+        // Access should fail on empty vector
         assert_eq!(
             bv.access(0).unwrap_err().to_string(),
             "IndexError: index out of bounds"
         );
+
+        // Values should return empty vector
         assert_eq!(bv.values().unwrap(), Vec::<bool>::new());
+
+        // Rank should return 0
         assert_eq!(bv.rank(true, 0).unwrap(), 0);
         assert_eq!(bv.rank(false, 0).unwrap(), 0);
+
+        // Select should return None
         assert_eq!(bv.select(true, 1).unwrap(), None);
         assert_eq!(bv.select(false, 1).unwrap(), None);
     }
 
     #[test]
-    fn test_exact_block() {
+    fn test_exact_block_size() {
         Python::initialize();
 
-        let bits = [true; 1024];
-        let bv = BitVector::new(bits.to_vec()).unwrap();
+        let bits = vec![true; 1024];
+        let bv = BitVector::new(bits.clone()).unwrap();
 
         assert_eq!(bv.values().unwrap(), bits);
         for i in 0..1024 {
@@ -216,10 +223,10 @@ mod tests {
     }
 
     #[test]
-    fn test_access() {
+    fn test_access_operation() {
         Python::initialize();
 
-        let bv = create_dummy();
+        let bv = create_test_bit_vector();
 
         assert!(bv.access(0).unwrap());
         assert!(!bv.access(1001).unwrap());
@@ -229,6 +236,8 @@ mod tests {
         assert!(bv.access(5005).unwrap());
         assert!(!bv.access(6006).unwrap());
         assert!(!bv.access(7007).unwrap());
+
+        // Out of bounds
         assert_eq!(
             bv.access(7992).unwrap_err().to_string(),
             "IndexError: index out of bounds"
@@ -236,21 +245,22 @@ mod tests {
     }
 
     #[test]
-    fn test_values() {
+    fn test_values_retrieval() {
         Python::initialize();
 
-        let bv = create_dummy();
+        let bv = create_test_bit_vector();
 
-        let expected: Vec<bool> = [true, false, true, true, false, true, false, false].repeat(999);
+        let expected = [true, false, true, true, false, true, false, false].repeat(999);
         assert_eq!(bv.values().unwrap(), expected);
     }
 
     #[test]
-    fn test_rank() {
+    fn test_rank_operation() {
         Python::initialize();
 
-        let bv = create_dummy();
+        let bv = create_test_bit_vector();
 
+        // Rank for true bits
         assert_eq!(bv.rank(true, 0).unwrap(), 0);
         assert_eq!(bv.rank(true, 1001).unwrap(), 501);
         assert_eq!(bv.rank(true, 2002).unwrap(), 1001);
@@ -260,11 +270,14 @@ mod tests {
         assert_eq!(bv.rank(true, 6006).unwrap(), 3004);
         assert_eq!(bv.rank(true, 7007).unwrap(), 3504);
         assert_eq!(bv.rank(true, 7992).unwrap(), 3996);
+
+        // Out of bounds for true
         assert_eq!(
             bv.rank(true, 7993).unwrap_err().to_string(),
             "IndexError: index out of bounds"
         );
 
+        // Rank for false bits
         assert_eq!(bv.rank(false, 0).unwrap(), 0);
         assert_eq!(bv.rank(false, 1001).unwrap(), 500);
         assert_eq!(bv.rank(false, 2002).unwrap(), 1001);
@@ -274,6 +287,8 @@ mod tests {
         assert_eq!(bv.rank(false, 6006).unwrap(), 3002);
         assert_eq!(bv.rank(false, 7007).unwrap(), 3503);
         assert_eq!(bv.rank(false, 7992).unwrap(), 3996);
+
+        // Out of bounds for false
         assert_eq!(
             bv.rank(false, 7993).unwrap_err().to_string(),
             "IndexError: index out of bounds"
@@ -281,31 +296,41 @@ mod tests {
     }
 
     #[test]
-    fn test_select() {
+    fn test_select_operation() {
         Python::initialize();
 
-        let bv = create_dummy();
+        let bv = create_test_bit_vector();
 
+        // Invalid kth=0 for true
         assert_eq!(
             bv.select(true, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
+
+        // Valid selections for true bits
         assert_eq!(bv.select(true, 1).unwrap(), Some(0));
         assert_eq!(bv.select(true, 1000).unwrap(), Some(1997));
         assert_eq!(bv.select(true, 2000).unwrap(), Some(3997));
         assert_eq!(bv.select(true, 3000).unwrap(), Some(5997));
         assert_eq!(bv.select(true, 3996).unwrap(), Some(7989));
+
+        // Out of range for true
         assert_eq!(bv.select(true, 3997).unwrap(), None);
 
+        // Invalid kth=0 for false
         assert_eq!(
             bv.select(false, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
+
+        // Valid selections for false bits
         assert_eq!(bv.select(false, 1).unwrap(), Some(1));
         assert_eq!(bv.select(false, 1000).unwrap(), Some(1999));
         assert_eq!(bv.select(false, 2000).unwrap(), Some(3999));
         assert_eq!(bv.select(false, 3000).unwrap(), Some(5999));
         assert_eq!(bv.select(false, 3996).unwrap(), Some(7991));
+
+        // Out of range for false
         assert_eq!(bv.select(false, 3997).unwrap(), None);
     }
 }
