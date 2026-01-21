@@ -49,17 +49,25 @@ def test_str(
     multi_fm_index_ucs2,
     multi_fm_index_ucs4,
 ):
-    assert str(multi_fm_index_empty) == "MultiFMIndex([])"
-    assert str(multi_fm_index_empties) == 'MultiFMIndex(["", "", ""])'
     assert (
-        str(multi_fm_index_ucs1) == 'MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])'
+        str(multi_fm_index_empty)
+        == "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)"
+    )
+    assert (
+        str(multi_fm_index_empties)
+        == "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)"
+    )
+    assert (
+        str(multi_fm_index_ucs1)
+        == "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)"
     )
     assert (
         str(multi_fm_index_ucs2)
-        == 'MultiFMIndex(["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"])'
+        == "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)"
     )
     assert (
-        str(multi_fm_index_ucs4) == 'MultiFMIndex(["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"])'
+        str(multi_fm_index_ucs4)
+        == "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)"
     )
 
 
@@ -169,6 +177,44 @@ def test_locate(
         1: [2],
         2: [0],
     }
+
+
+def test_iter_locate(
+    multi_fm_index_empty,
+    multi_fm_index_empties,
+    multi_fm_index_ucs1,
+    multi_fm_index_ucs2,
+    multi_fm_index_ucs4,
+):
+    assert list(multi_fm_index_empty.iter_locate("")) == []
+    assert list(multi_fm_index_empties.iter_locate("")) == [(2, 0), (1, 0), (0, 0)]
+    assert list(multi_fm_index_ucs1.iter_locate("abc")) == [
+        (2, 8),
+        (1, 10),
+        (0, 9),
+        (2, 0),
+        (2, 5),
+        (0, 6),
+        (0, 3),
+        (0, 0),
+        (1, 2),
+        (1, 5),
+    ]
+    assert list(multi_fm_index_ucs2.iter_locate("あいう")) == [
+        (2, 5),
+        (0, 6),
+        (1, 5),
+        (2, 0),
+        (0, 3),
+        (1, 2),
+        (0, 0),
+    ]
+    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀")) == [
+        (2, 0),
+        (0, 2),
+        (1, 2),
+        (0, 0),
+    ]
 
 
 def test_startswith(
