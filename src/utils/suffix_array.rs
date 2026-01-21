@@ -1,82 +1,108 @@
 // Adapted from: https://github.com/rust-lang-ja/ac-library-rs/blob/0cdbc5e2ad110b688b0239e0208e275dde94a1e2/src/string.rs
-use std::{cmp, iter, mem};
+use std::{cmp, fmt, hash, iter, mem, ops};
 
 use num_traits::PrimInt;
 
-fn suffix_array_naive(data: Vec<usize>) -> Vec<usize> {
-    let length = data.len();
+fn suffix_array_naive<IndexType>(data: Vec<IndexType>) -> Vec<IndexType>
+where
+    usize: TryFrom<IndexType>,
+    IndexType: PrimInt + ops::AddAssign + TryFrom<usize>,
+    <usize as TryFrom<IndexType>>::Error: fmt::Debug,
+    <IndexType as TryFrom<usize>>::Error: fmt::Debug,
+{
+    let length = data.len().try_into().unwrap();
 
-    let mut suffix_indices = (0..length).collect::<Vec<_>>();
-    suffix_indices.sort_by(|&(mut left_pos), &(mut right_pos)| {
-        if left_pos == right_pos {
+    let mut suffix_idx = (0..data.len())
+        .map(|value| value.try_into().unwrap())
+        .collect::<Vec<_>>();
+    suffix_idx.sort_by(|&(mut left): &IndexType, &(mut right): &IndexType| {
+        if left == right {
             return cmp::Ordering::Equal;
         }
-        while left_pos < length && right_pos < length {
-            if data[left_pos] != data[right_pos] {
-                return data[left_pos].cmp(&data[right_pos]);
+        while left < length && right < length {
+            if data[usize::try_from(left).unwrap()] != data[usize::try_from(right).unwrap()] {
+                return data[usize::try_from(left).unwrap()]
+                    .cmp(&data[usize::try_from(right).unwrap()]);
             }
-            left_pos += 1;
-            right_pos += 1;
+            left += IndexType::one();
+            right += IndexType::one();
         }
-        if left_pos == length {
+        if left == length {
             cmp::Ordering::Less
         } else {
             cmp::Ordering::Greater
         }
     });
 
-    suffix_indices
+    suffix_idx
 }
 
-fn suffix_array_doubling(data: Vec<usize>) -> Vec<usize> {
-    let length = data.len();
+fn suffix_array_doubling<IndexType>(data: Vec<IndexType>) -> Vec<IndexType>
+where
+    usize: TryFrom<IndexType>,
+    IndexType: PrimInt + ops::AddAssign + TryFrom<usize>,
+    <usize as TryFrom<IndexType>>::Error: fmt::Debug,
+    <IndexType as TryFrom<usize>>::Error: fmt::Debug,
+{
+    let length = data.len().try_into().unwrap();
 
-    let mut suffix_indices = (0..length).collect::<Vec<_>>();
-    let mut current_rank = data;
+    let mut suffix_idx = (0..data.len())
+        .map(|value| value.try_into().unwrap())
+        .collect::<Vec<_>>();
+    let mut rank = data;
 
-    let mut next_rank = vec![0usize; length];
-    let mut prefix_len = 1;
+    let mut next_rank = vec![IndexType::zero(); rank.len()];
+    let mut prefix_len = IndexType::one();
 
     while prefix_len < length {
-        let compare_suffix = |&pos_i: &usize, &pos_j: &usize| {
-            if current_rank[pos_i] != current_rank[pos_j] {
-                return current_rank[pos_i].cmp(&current_rank[pos_j]);
+        let compare_suffix = |&left: &IndexType, &right: &IndexType| {
+            if rank[usize::try_from(left).unwrap()] != rank[usize::try_from(right).unwrap()] {
+                return rank[usize::try_from(left).unwrap()]
+                    .cmp(&rank[usize::try_from(right).unwrap()]);
             }
-            match (pos_i + prefix_len < length, pos_j + prefix_len < length) {
+            match (left + prefix_len < length, right + prefix_len < length) {
                 (false, false) => cmp::Ordering::Equal,
                 (false, true) => cmp::Ordering::Less,
                 (true, false) => cmp::Ordering::Greater,
-                (true, true) => {
-                    current_rank[pos_i + prefix_len].cmp(&current_rank[pos_j + prefix_len])
-                }
+                (true, true) => rank[usize::try_from(left + prefix_len).unwrap()]
+                    .cmp(&rank[usize::try_from(right + prefix_len).unwrap()]),
             }
         };
 
-        suffix_indices.sort_by(compare_suffix);
+        suffix_idx.sort_by(compare_suffix);
 
-        next_rank[suffix_indices[0]] = 0;
-        for i in 1..length {
-            let should_increment =
-                compare_suffix(&suffix_indices[i - 1], &suffix_indices[i]) == cmp::Ordering::Less;
-            next_rank[suffix_indices[i]] = if should_increment {
-                next_rank[suffix_indices[i - 1]] + 1
+        next_rank[usize::try_from(suffix_idx[0]).unwrap()] = IndexType::zero();
+        for i in 1..length.try_into().unwrap() {
+            let increment =
+                compare_suffix(&suffix_idx[i - 1], &suffix_idx[i]) == cmp::Ordering::Less;
+            next_rank[usize::try_from(suffix_idx[i]).unwrap()] = if increment {
+                next_rank[usize::try_from(suffix_idx[i - 1]).unwrap()] + IndexType::one()
             } else {
-                next_rank[suffix_indices[i - 1]]
+                next_rank[usize::try_from(suffix_idx[i - 1]).unwrap()]
             };
         }
 
-        mem::swap(&mut current_rank, &mut next_rank);
-        prefix_len *= 2;
+        mem::swap(&mut rank, &mut next_rank);
+        prefix_len += prefix_len;
     }
 
-    suffix_indices
+    suffix_idx
 }
 
-fn suffix_array_induced_sorting(data: Vec<usize>, alphabet_max: usize) -> Vec<usize> {
-    let length = data.len();
-    let mut suffix_indices = vec![0; length];
-    let mut is_s_type = vec![false; length];
-    for i in (0..length - 1).rev() {
+fn suffix_array_induced_sorting<IndexType>(
+    data: Vec<IndexType>,
+    alphabet_max: IndexType,
+) -> Vec<IndexType>
+where
+    usize: TryFrom<IndexType>,
+    IndexType: PrimInt + ops::AddAssign + ops::SubAssign + TryFrom<usize>,
+    <usize as TryFrom<IndexType>>::Error: fmt::Debug,
+    <IndexType as TryFrom<usize>>::Error: fmt::Debug,
+{
+    let length: IndexType = data.len().try_into().unwrap();
+    let mut suffix_idx = vec![IndexType::zero(); length.try_into().unwrap()];
+    let mut is_s_type = vec![false; length.try_into().unwrap()];
+    for i in (0..data.len() - 1).rev() {
         is_s_type[i] = if data[i] == data[i + 1] {
             is_s_type[i + 1]
         } else {
@@ -84,135 +110,165 @@ fn suffix_array_induced_sorting(data: Vec<usize>, alphabet_max: usize) -> Vec<us
         };
     }
 
-    let mut bucket_l_start = vec![0; alphabet_max + 1];
-    let mut bucket_s_start = vec![0; alphabet_max + 1];
+    let mut bucket_l_start = vec![IndexType::zero(); usize::try_from(alphabet_max).unwrap() + 1];
+    let mut bucket_s_start = vec![IndexType::zero(); usize::try_from(alphabet_max).unwrap() + 1];
     for (&is_s_type, &data) in iter::zip(&is_s_type, &data) {
         if is_s_type {
-            bucket_l_start[data + 1] += 1;
+            bucket_l_start[usize::try_from(data).unwrap() + 1] += IndexType::one();
         } else {
-            bucket_s_start[data] += 1;
+            bucket_s_start[usize::try_from(data).unwrap()] += IndexType::one();
         }
     }
-    for i in 0..=alphabet_max {
+    for i in 0..=usize::try_from(alphabet_max).unwrap() {
         bucket_s_start[i] += bucket_l_start[i];
-        if i < alphabet_max {
+        if i < usize::try_from(alphabet_max).unwrap() {
             bucket_l_start[i + 1] += bucket_s_start[i];
         }
     }
 
     // suffix array's origin is +1
-    let induced_sort = |suffix_indices: &mut Vec<usize>, lms_positions: &Vec<usize>| {
-        suffix_indices.iter_mut().for_each(|elem| {
-            *elem = 0;
-        });
+    let induced_sort = |suffix_idx: &mut Vec<IndexType>, lms_positions: &Vec<IndexType>| {
+        suffix_idx.fill(IndexType::zero());
         let mut bucket_cursor = bucket_s_start.clone();
         for &lms_pos in lms_positions {
             if lms_pos == length {
                 continue;
             }
-            let insert_pos = bucket_cursor[data[lms_pos]];
-            bucket_cursor[data[lms_pos]] += 1;
-            suffix_indices[insert_pos] = lms_pos + 1;
+            let pos =
+                bucket_cursor[usize::try_from(data[usize::try_from(lms_pos).unwrap()]).unwrap()];
+            bucket_cursor[usize::try_from(data[usize::try_from(lms_pos).unwrap()]).unwrap()] +=
+                IndexType::one();
+            suffix_idx[usize::try_from(pos).unwrap()] = lms_pos + IndexType::one();
         }
         bucket_cursor.copy_from_slice(&bucket_l_start);
-        let insert_pos = bucket_cursor[data[length - 1]];
-        bucket_cursor[data[length - 1]] += 1;
-        suffix_indices[insert_pos] = length;
-        for i in 0..length {
-            let suffix_value = suffix_indices[i];
-            if suffix_value >= 2 && !is_s_type[suffix_value - 2] {
-                let insert_pos = bucket_cursor[data[suffix_value - 2]];
-                bucket_cursor[data[suffix_value - 2]] += 1;
-                suffix_indices[insert_pos] = suffix_value - 1;
+        let pos =
+            bucket_cursor[usize::try_from(data[usize::try_from(length).unwrap() - 1]).unwrap()];
+        bucket_cursor[usize::try_from(data[usize::try_from(length).unwrap() - 1]).unwrap()] +=
+            IndexType::one();
+        suffix_idx[usize::try_from(pos).unwrap()] = length;
+        for i in 0..usize::try_from(length).unwrap() {
+            let sa_value = suffix_idx[i];
+            if sa_value > IndexType::one() && !is_s_type[usize::try_from(sa_value).unwrap() - 2] {
+                let old = bucket_cursor
+                    [usize::try_from(data[usize::try_from(sa_value).unwrap() - 2]).unwrap()];
+                bucket_cursor
+                    [usize::try_from(data[usize::try_from(sa_value).unwrap() - 2]).unwrap()] +=
+                    IndexType::one();
+                suffix_idx[usize::try_from(old).unwrap()] = sa_value - IndexType::one();
             }
         }
         bucket_cursor.copy_from_slice(&bucket_l_start);
-        for i in (0..length).rev() {
-            let suffix_value = suffix_indices[i];
-            if suffix_value >= 2 && is_s_type[suffix_value - 2] {
-                bucket_cursor[data[suffix_value - 2] + 1] -= 1;
-                let insert_pos = bucket_cursor[data[suffix_value - 2] + 1];
-                suffix_indices[insert_pos] = suffix_value - 1;
+        for i in (0..usize::try_from(length).unwrap()).rev() {
+            let sa_value = suffix_idx[i];
+            if sa_value > IndexType::one() && is_s_type[usize::try_from(sa_value).unwrap() - 2] {
+                bucket_cursor
+                    [usize::try_from(data[usize::try_from(sa_value).unwrap() - 2]).unwrap() + 1] -=
+                    IndexType::one();
+                let pos: IndexType = bucket_cursor
+                    [usize::try_from(data[usize::try_from(sa_value).unwrap() - 2]).unwrap() + 1];
+                suffix_idx[usize::try_from(pos).unwrap()] = sa_value - IndexType::one();
             }
         }
     };
 
     // origin of lms_index is +1
-    let mut lms_index = vec![0usize; length + 1];
-    let mut num_lms = 0usize;
-    for i in 1..length {
+    let mut lms_index = vec![IndexType::zero(); usize::try_from(length).unwrap() + 1];
+    let mut num_lms = IndexType::zero();
+    for i in 1..usize::try_from(length).unwrap() {
         if !is_s_type[i - 1] && is_s_type[i] {
-            lms_index[i] = num_lms + 1;
-            num_lms += 1;
+            lms_index[i] = num_lms + IndexType::one();
+            num_lms += IndexType::one();
         }
     }
-    let lms_positions = (1..length)
+    let lms_positions = (1..usize::try_from(length).unwrap())
         .filter(|&i| !is_s_type[i - 1] && is_s_type[i])
+        .map(|i| i.try_into().unwrap())
         .collect::<Vec<_>>();
-    debug_assert_eq!(lms_positions.len(), num_lms);
-    induced_sort(&mut suffix_indices, &lms_positions);
+    induced_sort(&mut suffix_idx, &lms_positions);
 
-    if num_lms > 0 {
-        let mut sorted_lms_positions = suffix_indices
+    if num_lms > IndexType::zero() {
+        let mut sorted_lms_positions = suffix_idx
             .iter()
-            .filter_map(|&suffix_value| {
-                if lms_index[suffix_value - 1] > 0 {
-                    Some(suffix_value - 1)
+            .filter_map(|&sa_value| {
+                if lms_index[usize::try_from(sa_value).unwrap() - 1] > IndexType::zero() {
+                    Some(sa_value - IndexType::one())
                 } else {
                     None
                 }
             })
             .collect::<Vec<_>>();
-        let mut reduced_data = vec![0usize; num_lms];
-        let mut reduced_alphabet_max = 0usize;
-        reduced_data[lms_index[sorted_lms_positions[0]] - 1] = 0usize;
-        for i in 1..num_lms {
+        let mut reduced_data = vec![IndexType::zero(); usize::try_from(num_lms).unwrap()];
+        let mut reduced_alphabet_max = IndexType::zero();
+        reduced_data[usize::try_from(
+            lms_index[usize::try_from(sorted_lms_positions[0]).unwrap()],
+        )
+        .unwrap()
+            - 1] = IndexType::zero();
+        for i in 1..usize::try_from(num_lms).unwrap() {
             let mut prev_pos = sorted_lms_positions[i - 1];
             let mut curr_pos = sorted_lms_positions[i];
-            let prev_end = if lms_index[prev_pos] < num_lms {
-                lms_positions[lms_index[prev_pos]]
+            let prev_end = if lms_index[usize::try_from(prev_pos).unwrap()] < num_lms {
+                lms_positions
+                    [usize::try_from(lms_index[usize::try_from(prev_pos).unwrap()]).unwrap()]
             } else {
                 length
             };
-            let curr_end = if lms_index[curr_pos] < num_lms {
-                lms_positions[lms_index[curr_pos]]
+            let curr_end = if lms_index[usize::try_from(curr_pos).unwrap()] < num_lms {
+                lms_positions
+                    [usize::try_from(lms_index[usize::try_from(curr_pos).unwrap()]).unwrap()]
             } else {
                 length
             };
             let is_same_lms_substring = if prev_end - prev_pos != curr_end - curr_pos {
                 false
             } else {
-                while prev_pos < prev_end && data[prev_pos] == data[curr_pos] {
-                    prev_pos += 1;
-                    curr_pos += 1;
+                while prev_pos < prev_end
+                    && data[usize::try_from(prev_pos).unwrap()]
+                        == data[usize::try_from(curr_pos).unwrap()]
+                {
+                    prev_pos += IndexType::one();
+                    curr_pos += IndexType::one();
                 }
-                prev_pos != length && data[prev_pos] == data[curr_pos]
+                prev_pos != length
+                    && data[usize::try_from(prev_pos).unwrap()]
+                        == data[usize::try_from(curr_pos).unwrap()]
             };
 
             if !is_same_lms_substring {
-                reduced_alphabet_max += 1;
+                reduced_alphabet_max += IndexType::one();
             }
-            reduced_data[lms_index[sorted_lms_positions[i]] - 1] = reduced_alphabet_max;
+            reduced_data[usize::try_from(
+                lms_index[usize::try_from(sorted_lms_positions[i]).unwrap()],
+            )
+            .unwrap()
+                - 1] = reduced_alphabet_max;
         }
 
         let reduced_suffix_array = suffix_array(reduced_data, reduced_alphabet_max);
-        for i in 0..num_lms {
-            sorted_lms_positions[i] = lms_positions[reduced_suffix_array[i]];
+        for i in 0..usize::try_from(num_lms).unwrap() {
+            sorted_lms_positions[i] =
+                lms_positions[usize::try_from(reduced_suffix_array[i]).unwrap()];
         }
-        induced_sort(&mut suffix_indices, &sorted_lms_positions);
+        induced_sort(&mut suffix_idx, &sorted_lms_positions);
     }
-    suffix_indices.iter_mut().for_each(|x| *x -= 1);
-    suffix_indices
+    suffix_idx.iter_mut().for_each(|x| *x -= IndexType::one());
+    suffix_idx
 }
 
-fn suffix_array(data: Vec<usize>, alphabet_max: usize) -> Vec<usize> {
+fn suffix_array<IndexType>(data: Vec<IndexType>, alphabet_max: IndexType) -> Vec<IndexType>
+where
+    usize: TryFrom<IndexType>,
+    IndexType: PrimInt + ops::AddAssign + ops::SubAssign + TryFrom<usize>,
+    <usize as TryFrom<IndexType>>::Error: fmt::Debug,
+    <IndexType as TryFrom<usize>>::Error: fmt::Debug,
+{
     match data.len() {
-        0..2 => (0..data.len()).collect(),
+        0..2 => (0..data.len()).map(|i| i.try_into().unwrap()).collect(),
         2 => {
             if data[0] < data[1] {
-                vec![0, 1]
+                vec![IndexType::zero(), IndexType::one()]
             } else {
-                vec![1, 0]
+                vec![IndexType::one(), IndexType::zero()]
             }
         }
         3..10 => suffix_array_naive(data),
@@ -221,16 +277,73 @@ fn suffix_array(data: Vec<usize>, alphabet_max: usize) -> Vec<usize> {
     }
 }
 
-pub(crate) fn suffix_array_option<Element: PrimInt>(data: &[Option<Element>]) -> Vec<usize> {
-    let data = data
-        .iter()
-        .map(|opt| match opt {
-            Some(value) => value.to_usize().unwrap() + 1,
-            None => 0,
-        })
-        .collect::<Vec<_>>();
-    let &alphabet_max = data.iter().max().unwrap_or(&0);
-    suffix_array(data, alphabet_max)
+pub(crate) fn suffix_array_option<Element: PrimInt + hash::Hash>(
+    data: &[Option<Element>],
+) -> Vec<usize> {
+    fn to_usize_compress<Element: PrimInt + hash::Hash>(data: &[Option<Element>]) -> Vec<usize> {
+        let mut unique_values = data.to_vec();
+        unique_values.sort();
+        unique_values.dedup();
+
+        let value_index = unique_values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (value, index))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        data.iter().map(|opt| value_index[opt]).collect::<Vec<_>>()
+    }
+
+    fn to_usize_no_compress<Element: PrimInt>(data: &[Option<Element>]) -> Vec<usize> {
+        data.iter()
+            .map(|&opt| match opt {
+                Some(value) => value.to_usize().unwrap() + 1,
+                None => 0usize,
+            })
+            .collect::<Vec<_>>()
+    }
+
+    if data.len() <= u8::MAX as usize {
+        let data_usize = to_usize_compress(data)
+            .into_iter()
+            .map(|x| x as u8)
+            .collect::<Vec<_>>();
+        let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u8;
+        suffix_array::<u8>(data_usize, alphabet_max)
+            .into_iter()
+            .map(|x| x as usize)
+            .collect()
+    } else if data.len() <= u16::MAX as usize {
+        let data_usize = to_usize_compress(data)
+            .into_iter()
+            .map(|x| x as u16)
+            .collect::<Vec<_>>();
+        let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u16;
+        suffix_array(data_usize, alphabet_max)
+            .into_iter()
+            .map(|x| x as usize)
+            .collect()
+    } else if data.len() <= u32::MAX as usize {
+        let data_usize = to_usize_no_compress(data)
+            .into_iter()
+            .map(|x| x as u32)
+            .collect::<Vec<_>>();
+        let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u32;
+        suffix_array(data_usize, alphabet_max)
+            .into_iter()
+            .map(|x| x as usize)
+            .collect()
+    } else {
+        let data_usize = to_usize_no_compress(data)
+            .into_iter()
+            .map(|x| x as u64)
+            .collect::<Vec<_>>();
+        let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u64;
+        suffix_array(data_usize, alphabet_max)
+            .into_iter()
+            .map(|x| x as usize)
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -239,55 +352,50 @@ mod tests {
 
     use super::*;
 
-    fn verify_all_algorithms(array: &[usize], expected_indices: &[usize]) {
-        let result_doubling = suffix_array_doubling(array.to_vec());
-        assert_eq!(result_doubling, expected_indices);
-
-        let result_naive = suffix_array_naive(array.to_vec());
-        assert_eq!(result_naive, expected_indices);
-
-        let result_induced_sorting =
+    fn verify_all(array: &[usize], expected_idx: &[usize]) {
+        let suffix_idx_doubling = suffix_array_doubling(array.to_vec());
+        assert_eq!(suffix_idx_doubling, expected_idx);
+        let suffix_idx_naive = suffix_array_naive(array.to_vec());
+        assert_eq!(suffix_idx_naive, expected_idx);
+        let suffix_idx_induced_sorting =
             suffix_array_induced_sorting(array.to_vec(), array.iter().copied().max().unwrap_or(0));
-        assert_eq!(result_induced_sorting, expected_indices);
-
-        let result_auto = suffix_array(array.to_vec(), array.iter().copied().max().unwrap_or(0));
-        assert_eq!(result_auto, expected_indices);
-
-        let result_option =
-            suffix_array_option(&array.iter().map(|&x| Some(x)).collect::<Vec<_>>());
-        assert_eq!(result_option, expected_indices);
+        assert_eq!(suffix_idx_induced_sorting, expected_idx);
+        let suffix_idx = suffix_array(array.to_vec(), array.iter().copied().max().unwrap_or(0));
+        assert_eq!(suffix_idx, expected_idx);
+        let suffix_idx_optional =
+            suffix_array_option(&array.iter().map(|&x| Some(x as u8)).collect::<Vec<_>>());
+        assert_eq!(suffix_idx_optional, expected_idx);
     }
 
     #[test]
-    fn test_sorted_sequence() {
+    fn test_suffix_array_0() {
         let array = [0, 1, 2, 3, 4, 5];
-        let result = suffix_array_doubling(array.to_vec());
-        assert_eq!(result, [0, 1, 2, 3, 4, 5]);
+        let suffix_idx = suffix_array_doubling(array.to_vec());
+        assert_eq!(suffix_idx, [0, 1, 2, 3, 4, 5]);
     }
 
     #[test]
-    fn test_abracadabra() {
-        let text = "abracadabra";
-        let array = text.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
-        verify_all_algorithms(&array, &[10, 7, 0, 3, 5, 8, 1, 4, 6, 9, 2]);
+    fn test_suffix_array_1() {
+        let str = "abracadabra";
+        let array = str.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
+        verify_all(&array, &[10, 7, 0, 3, 5, 8, 1, 4, 6, 9, 2]);
     }
 
     #[test]
-    fn test_repeated_characters() {
-        // Example from https://mametter.hatenablog.com/entry/20180130/p1
-        let text = "mmiissiissiippii";
-        let array = text.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
-        verify_all_algorithms(
+    fn test_suffix_array_2() {
+        let str = "mmiissiissiippii"; // an example taken from https://mametter.hatenablog.com/entry/20180130/p1
+        let array = str.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
+        verify_all(
             &array,
             &[15, 14, 10, 6, 2, 11, 7, 3, 1, 0, 13, 12, 9, 5, 8, 4],
         );
     }
 
     #[test]
-    fn test_long_repeated_text() {
-        let text = "mississippi".repeat(50);
-        let array = text.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
-        verify_all_algorithms(
+    fn test_suffix_array_3() {
+        let str = "mississippi".repeat(50);
+        let array = str.bytes().map(|byte| byte as usize).collect::<Vec<_>>();
+        verify_all(
             &array,
             &[
                 549, 538, 527, 516, 505, 494, 483, 472, 461, 450, 439, 428, 417, 406, 395, 384,
@@ -328,17 +436,18 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_strings_with_separators() {
-        let texts = ["banana", "ananas", "abracadabra", "mississippi"];
-        let array = texts
+    fn test_suffix_array_4() {
+        let str_list = ["banana", "ananas", "abracadabra", "mississippi"];
+        let array = str_list
             .iter()
-            .flat_map(|&text| text.bytes().map(Some).chain(iter::once(None)))
+            .flat_map(|&str| str.bytes().map(Some).chain(iter::once(None)))
             .collect::<Vec<_>>();
-
-        let expected = vec![
-            37, 13, 6, 25, 5, 24, 21, 14, 17, 19, 3, 1, 7, 9, 11, 0, 22, 15, 18, 20, 36, 33, 30,
-            27, 26, 4, 2, 8, 10, 35, 34, 23, 16, 12, 32, 29, 31, 28,
-        ];
-        assert_eq!(suffix_array_option(&array), expected);
+        assert_eq!(
+            suffix_array_option(&array),
+            &[
+                37, 13, 6, 25, 5, 24, 21, 14, 17, 19, 3, 1, 7, 9, 11, 0, 22, 15, 18, 20, 36, 33,
+                30, 27, 26, 4, 2, 8, 10, 35, 34, 23, 16, 12, 32, 29, 31, 28,
+            ],
+        );
     }
 }

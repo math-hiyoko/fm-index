@@ -5,7 +5,7 @@ use pyo3::PyResult;
 use rayon::prelude::*;
 
 use crate::utils::{
-    bit_width::BitWidth, suffix_array::suffix_array_option, wavelet_matrix::WaveletMatrix,
+    bit_width::BitWidth, wavelet_matrix::WaveletMatrix,
 };
 
 pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
@@ -24,16 +24,7 @@ pub(super) struct BaseFMIndex<
 impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
     BaseFMIndex<Element>
 {
-    pub(super) fn new(data: Vec<Option<Element>>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_option(&data);
-
-        Self::new_with_suffix_array(data, suffix_idx)
-    }
-
-    pub(super) fn new_with_suffix_array(
-        data: Vec<Option<Element>>,
-        suffix_idx: Vec<usize>,
-    ) -> PyResult<Self> {
+    pub(super) fn new(data: Vec<Option<Element>>, suffix_idx: Vec<usize>) -> PyResult<Self> {
         let len = data.len();
 
         let zero_suffix_idx = suffix_idx
@@ -175,11 +166,13 @@ mod tests {
     use std::iter;
 
     use super::*;
+    use crate::utils::suffix_array::suffix_array_option;
 
     #[test]
     fn test_base_fm_index_empty() {
         let data = [Option::<u8>::None];
-        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
+        let suffix_idx = suffix_array_option(&data);
+        let fm_index = BaseFMIndex::new(data.to_vec(), suffix_idx).unwrap();
 
         assert_eq!(fm_index.suffix_idx(0).unwrap(), 0);
         assert_eq!(fm_index.values().unwrap(), [None]);
@@ -194,8 +187,8 @@ mod tests {
             .map(Some)
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
         let suffix_idx = suffix_array_option(&data);
+        let fm_index = BaseFMIndex::new(data.to_vec(), suffix_idx.clone()).unwrap();
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -217,8 +210,8 @@ mod tests {
             .map(Some)
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
         let suffix_idx = suffix_array_option(&data);
+        let fm_index = BaseFMIndex::new(data.to_vec(), suffix_idx.clone()).unwrap();
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);
@@ -239,8 +232,8 @@ mod tests {
             .map(|c| Some(c as u32))
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let fm_index = BaseFMIndex::new(data.to_vec()).unwrap();
         let suffix_idx = suffix_array_option(&data);
+        let fm_index = BaseFMIndex::new(data.to_vec(), suffix_idx.clone()).unwrap();
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
             assert_eq!(fm_index.suffix_idx(i).unwrap(), suffix_idx);

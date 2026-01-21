@@ -4,7 +4,10 @@ use num_traits::PrimInt;
 use pyo3::PyResult;
 use rayon::prelude::*;
 
-use crate::{fm_index::base_fm_index::BaseFMIndex, utils::bit_width::BitWidth};
+use crate::{
+    fm_index::base_fm_index::BaseFMIndex,
+    utils::{bit_width::BitWidth, suffix_array::suffix_array_option},
+};
 
 #[derive(Clone)]
 pub(crate) struct FMIndex<
@@ -24,7 +27,8 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
             .map(|symbol| Some(symbol))
             .chain(iter::once(None))
             .collect::<Vec<_>>();
-        let base_fm_index = BaseFMIndex::new(data)?;
+        let suffix_idx = suffix_array_option(&data);
+        let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
         Ok(FMIndex { len, base_fm_index })
     }
 
