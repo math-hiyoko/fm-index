@@ -1,6 +1,6 @@
 use std::{collections, hash, iter, ops};
 
-use num_traits::{PrimInt, Unsigned};
+use num_traits::PrimInt;
 use pyo3::PyResult;
 use rayon::prelude::*;
 
@@ -9,7 +9,7 @@ use crate::utils::{bit_vector::BitVector, bit_width::BitWidth, suffix_array::suf
 
 #[derive(Clone)]
 pub(crate) struct MultiFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+    Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     doc_len: Vec<usize>,
     total_num_chars: usize,
@@ -18,9 +18,8 @@ pub(crate) struct MultiFMIndex<
     pos: Vec<(usize, usize)>,                // (doc_id, offset)
 }
 
-impl<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
-> MultiFMIndex<Element>
+impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
+    MultiFMIndex<Element>
 {
     pub(crate) fn new(data: Vec<Vec<Element>>) -> PyResult<Self> {
         let doc_len = data.iter().map(|data| data.len()).collect::<Vec<_>>();
@@ -82,7 +81,7 @@ impl<
     }
 
     #[inline]
-    pub(crate) fn range_search(&self, pattern: Vec<Element>) -> PyResult<(usize, usize)> {
+    pub(super) fn range_search(&self, pattern: Vec<Element>) -> PyResult<(usize, usize)> {
         let pattern = pattern
             .into_iter()
             .map(|symbol| Some(symbol))
@@ -93,7 +92,7 @@ impl<
     }
 
     #[inline]
-    pub(crate) fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
+    pub(super) fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
         let mut step = 0usize;
         loop {
             if let Some(&doc_id) = self.doc.get(&k) {

@@ -1,6 +1,6 @@
 use std::{collections, hash, iter, ops};
 
-use num_traits::{PrimInt, Unsigned, Zero};
+use num_traits::{PrimInt, Zero};
 use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use super::{bit_vector::BitVector, bit_width::BitWidth};
 
 #[derive(Clone)]
-pub(crate) struct WaveletMatrix<NumberType: PrimInt + Unsigned> {
+pub(crate) struct WaveletMatrix<NumberType: PrimInt> {
     len: usize,
     is_none: BitVector,
     height: usize,
@@ -18,9 +18,8 @@ pub(crate) struct WaveletMatrix<NumberType: PrimInt + Unsigned> {
     zeros: Vec<usize>,
     begin_index: collections::HashMap<NumberType, usize>,
 }
-impl<
-    NumberType: hash::Hash + PrimInt + Unsigned + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
-> WaveletMatrix<NumberType>
+impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
+    WaveletMatrix<NumberType>
 {
     pub(crate) fn new(data: Vec<Option<NumberType>>) -> PyResult<Self> {
         let len = data.len();

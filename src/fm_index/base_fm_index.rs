@@ -1,6 +1,6 @@
 use std::{collections, hash, ops};
 
-use num_traits::{PrimInt, Unsigned, Zero};
+use num_traits::{PrimInt, Zero};
 use pyo3::PyResult;
 use rayon::prelude::*;
 
@@ -12,7 +12,7 @@ pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
 
 #[derive(Clone)]
 pub(super) struct BaseFMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+    Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     len: usize,
     zero_suffix_idx: usize,
@@ -21,9 +21,8 @@ pub(super) struct BaseFMIndex<
     burrows_wheeler_transform: WaveletMatrix<Element>,
 }
 
-impl<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
-> BaseFMIndex<Element>
+impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
+    BaseFMIndex<Element>
 {
     pub(super) fn new(data: Vec<Option<Element>>) -> PyResult<Self> {
         let suffix_idx = suffix_array_option(&data);

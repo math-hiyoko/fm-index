@@ -1,7 +1,7 @@
 // Adapted from: https://github.com/rust-lang-ja/ac-library-rs/blob/0cdbc5e2ad110b688b0239e0208e275dde94a1e2/src/string.rs
 use std::{cmp, iter, mem};
 
-use num_traits::{PrimInt, Unsigned};
+use num_traits::PrimInt;
 
 fn suffix_array_naive(data: Vec<usize>) -> Vec<usize> {
     let length = data.len();
@@ -221,9 +221,7 @@ fn suffix_array(data: Vec<usize>, alphabet_max: usize) -> Vec<usize> {
     }
 }
 
-pub(crate) fn suffix_array_option<Element: PrimInt + Unsigned>(
-    data: &[Option<Element>],
-) -> Vec<usize> {
+pub(crate) fn suffix_array_option<Element: PrimInt>(data: &[Option<Element>]) -> Vec<usize> {
     let data = data
         .iter()
         .map(|opt| match opt {

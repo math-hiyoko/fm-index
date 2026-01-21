@@ -1,6 +1,6 @@
 use std::{hash, iter, ops};
 
-use num_traits::{PrimInt, Unsigned};
+use num_traits::PrimInt;
 use pyo3::PyResult;
 use rayon::prelude::*;
 
@@ -8,15 +8,14 @@ use crate::{fm_index::base_fm_index::BaseFMIndex, utils::bit_width::BitWidth};
 
 #[derive(Clone)]
 pub(crate) struct FMIndex<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
+    Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
 > {
     len: usize,
     base_fm_index: BaseFMIndex<Element>,
 }
 
-impl<
-    Element: PrimInt + Unsigned + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
-> FMIndex<Element>
+impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
+    FMIndex<Element>
 {
     pub(crate) fn new(data: Vec<Element>) -> PyResult<Self> {
         let len = data.len();
