@@ -1,6 +1,6 @@
 use std::{collections, hash, iter, ops};
 
-use num_traits::PrimInt;
+use num_traits::{PrimInt, Zero};
 use pyo3::PyResult;
 use rayon::prelude::*;
 
@@ -48,7 +48,9 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
                     chunk
                         .into_iter()
                         .enumerate()
-                        .fold(0u64, |acc, (i, bit)| acc | ((bit as BlockType) << i))
+                        .fold(BlockType::zero(), |acc, (i, bit)| {
+                            acc | ((bit as BlockType) << i)
+                        })
                 })
                 .collect::<Vec<_>>(),
             data.len(),
