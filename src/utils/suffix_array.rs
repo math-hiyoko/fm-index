@@ -249,10 +249,10 @@ where
 
         drop(lms_index);
         let reduced_suffix_array = suffix_array(reduced_data, reduced_alphabet_max);
-        for i in 0..usize::try_from(num_lms).unwrap() {
-            sorted_lms_positions[i] =
-                lms_positions[usize::try_from(reduced_suffix_array[i]).unwrap()];
+        for (i, reduced_sa_value) in reduced_suffix_array.into_iter().enumerate() {
+            sorted_lms_positions[i] = lms_positions[usize::try_from(reduced_sa_value).unwrap()];
         }
+        drop(lms_positions);
         induced_sort(&mut suffix_idx, &mut bucket_cursor, &sorted_lms_positions);
     }
     suffix_idx.iter_mut().for_each(|x| *x -= IndexType::one());
