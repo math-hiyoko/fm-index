@@ -57,7 +57,7 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
             })
             .collect::<PyResult<Vec<(usize, usize)>>>()?;
 
-        let base_fm_index = BaseFMIndex::new_with_suffix_array(data, suffix_idx)?;
+        let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
 
         let doc = (1..=doc_len.len())
             .into_par_iter()
