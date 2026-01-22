@@ -127,7 +127,7 @@ where
     }
 
     // suffix array's origin is +1
-    let induced_sort = |suffix_idx: &mut Vec<IndexType>, lms_positions: &Vec<IndexType>| {
+    let induced_sort = |suffix_idx: &mut [IndexType], lms_positions: &[IndexType]| {
         suffix_idx.fill(IndexType::zero());
         let mut bucket_cursor = bucket_s_start.clone();
         for &lms_pos in lms_positions {
