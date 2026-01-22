@@ -30,7 +30,7 @@ impl WaveletMatrix {
         let mut layer_blocks_vec = Vec::with_capacity(height);
         let mut current_values = values;
         for depth in 0..height {
-            let current_layer_bits = current_values
+            let current_layer_blocks = current_values
                 .par_iter()
                 .map(|value| (value >> (height - depth - 1) & 1u32).is_one())
                 .collect::<Vec<bool>>();
@@ -67,6 +67,7 @@ impl WaveletMatrix {
                 .collect::<Vec<_>>();
 
             zeros_count_per_layer.push(zeros_count);
+            layer_blocks_vec.push(current_layer_blocks);
             layer_blocks_vec.push(current_layer_blocks);
             current_values = reordered_values;
         }

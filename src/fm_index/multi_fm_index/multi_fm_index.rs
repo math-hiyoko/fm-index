@@ -42,16 +42,7 @@ impl MultiFMIndex {
 
         let data_none_bitvector = BitVector::new(
             data.par_iter()
-                .map(|value| value.is_zero())
-                .chunks(BlockType::BITS as usize)
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .enumerate()
-                        .fold(BlockType::zero(), |acc, (i, &bit)| {
-                            acc | ((bit as BlockType) << i)
-                        })
-                })
+                .map(|value| value.is_none())
                 .collect::<Vec<_>>(),
             data.len(),
         )?;
