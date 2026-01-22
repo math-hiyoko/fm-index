@@ -126,10 +126,13 @@ where
         }
     }
 
+    let mut bucket_cursor = vec![IndexType::zero(); usize::try_from(alphabet_max).unwrap() + 1];
     // suffix array's origin is +1
-    let induced_sort = |suffix_idx: &mut [IndexType], lms_positions: &[IndexType]| {
+    let induced_sort = |suffix_idx: &mut [IndexType],
+                        bucket_cursor: &mut [IndexType],
+                        lms_positions: &[IndexType]| {
         suffix_idx.fill(IndexType::zero());
-        let mut bucket_cursor = bucket_s_start.clone();
+        bucket_cursor.copy_from_slice(&bucket_s_start);
         for &lms_pos in lms_positions {
             if lms_pos == length {
                 continue;
@@ -184,7 +187,7 @@ where
         .filter(|&i| !is_s_type[i - 1] && is_s_type[i])
         .map(|i| i.try_into().unwrap())
         .collect::<Vec<_>>();
-    induced_sort(&mut suffix_idx, &lms_positions);
+    induced_sort(&mut suffix_idx, &mut bucket_cursor, &lms_positions);
 
     if num_lms > IndexType::zero() {
         let mut sorted_lms_positions = suffix_idx
@@ -244,12 +247,13 @@ where
                 - 1] = reduced_alphabet_max;
         }
 
+        drop(lms_index);
         let reduced_suffix_array = suffix_array(reduced_data, reduced_alphabet_max);
         for i in 0..usize::try_from(num_lms).unwrap() {
             sorted_lms_positions[i] =
                 lms_positions[usize::try_from(reduced_suffix_array[i]).unwrap()];
         }
-        induced_sort(&mut suffix_idx, &sorted_lms_positions);
+        induced_sort(&mut suffix_idx, &mut bucket_cursor, &sorted_lms_positions);
     }
     suffix_idx.iter_mut().for_each(|x| *x -= IndexType::one());
     suffix_idx
