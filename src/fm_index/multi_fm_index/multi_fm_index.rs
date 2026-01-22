@@ -46,9 +46,9 @@ impl MultiFMIndex {
                 .chunks(BlockType::BITS as usize)
                 .map(|chunk| {
                     chunk
-                        .iter()
+                        .into_iter()
                         .enumerate()
-                        .fold(BlockType::zero(), |acc, (i, &bit)| {
+                        .fold(BlockType::zero(), |acc, (i, bit)| {
                             acc | ((bit as BlockType) << i)
                         })
                 })
