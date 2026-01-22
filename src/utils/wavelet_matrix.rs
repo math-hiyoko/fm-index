@@ -35,7 +35,9 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
                     chunk
                         .into_iter()
                         .enumerate()
-                        .fold(0u64, |acc, (i, bit)| acc | ((bit as BlockType) << i))
+                        .fold(BlockType::zero(), |acc, (i, bit)| {
+                            acc | ((bit as BlockType) << i)
+                        })
                 })
                 .collect::<Vec<_>>(),
             len,
@@ -59,7 +61,9 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
                     chunk
                         .iter()
                         .enumerate()
-                        .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+                        .fold(BlockType::zero(), |acc, (i, &bit)| {
+                            acc | ((bit as BlockType) << i)
+                        })
                 })
                 .collect::<Vec<_>>();
             let zeros_count = current_values.len()

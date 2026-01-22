@@ -156,7 +156,9 @@ mod tests {
                 chunk
                     .iter()
                     .enumerate()
-                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+                    .fold(BlockType::zero(), |acc, (i, &bit)| {
+                        acc | ((bit as BlockType) << i)
+                    })
             })
             .collect::<Vec<_>>();
         BitVector::new(blocks, bits.len()).unwrap()
@@ -197,7 +199,9 @@ mod tests {
                 chunk
                     .iter()
                     .enumerate()
-                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+                    .fold(BlockType::zero(), |acc, (i, &bit)| {
+                        acc | ((bit as BlockType) << i)
+                    })
             })
             .collect::<Vec<_>>();
         let bv = BitVector::new(blocks.clone(), bits.len()).unwrap();
@@ -247,7 +251,9 @@ mod tests {
                 chunk
                     .iter()
                     .enumerate()
-                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+                    .fold(BlockType::zero(), |acc, (i, &bit)| {
+                        acc | ((bit as BlockType) << i)
+                    })
             })
             .collect::<Vec<_>>();
         assert_eq!(bv.values().unwrap(), expected_blocks);
