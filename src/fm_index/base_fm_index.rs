@@ -4,9 +4,7 @@ use num_traits::{PrimInt, Zero};
 use pyo3::PyResult;
 use rayon::prelude::*;
 
-use crate::utils::{
-    bit_width::BitWidth, wavelet_matrix::WaveletMatrix,
-};
+use crate::utils::{bit_width::BitWidth, wavelet_matrix::WaveletMatrix};
 
 pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
 
