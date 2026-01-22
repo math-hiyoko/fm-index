@@ -10,7 +10,7 @@ use rayon::prelude::*;
 
 use crate::utils::bit_select::BitSelect;
 
-type BlockType = u64;
+pub(crate) type BlockType = u64;
 const SELECT_INDEX_INTERBVAL: usize = 64;
 
 #[derive(Clone)]
@@ -22,26 +22,7 @@ pub(crate) struct BitVector {
 }
 
 impl BitVector {
-    pub(crate) fn new(bits: Vec<bool>) -> PyResult<Self> {
-        let len = bits.len();
-
-        // Pack blocks into BitType words
-        let blocks: Vec<BlockType> = bits
-            .chunks(BlockType::BITS as usize)
-            .map(|chunk| {
-                chunk
-                    .iter()
-                    .enumerate()
-                    .fold(BlockType::zero(), |acc, (i, &bit)| {
-                        if bit {
-                            acc | (BlockType::one() << i)
-                        } else {
-                            acc
-                        }
-                    })
-            })
-            .collect();
-
+    pub(crate) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
         // Build the rank index structure.
         let ranks: Vec<usize> = iter::once(0usize)
             .chain(blocks.iter().scan(0usize, |acc, block| {
@@ -58,8 +39,9 @@ impl BitVector {
             select_index_inner.push(0);
         }
         let mut count = [0usize, 0usize];
-        for (index, bit) in bits.into_iter().enumerate() {
-            let bit = bit as usize;
+        for index in 0..len {
+            let (block_index, bit_index) = index.div_rem(&(BlockType::BITS as usize));
+            let bit = ((blocks[block_index] >> bit_index) & BlockType::one()).is_one() as usize;
             count[bit] += 1;
             if count[bit].is_multiple_of(SELECT_INDEX_INTERBVAL) {
                 select_index[bit].push(index);
@@ -92,17 +74,8 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn values(&self) -> PyResult<Vec<bool>> {
-        let mut result: Vec<bool> = self
-            .blocks
-            .par_iter()
-            .flat_map_iter(|&block| {
-                (0..BlockType::BITS as usize)
-                    .map(move |i| ((block >> i) & BlockType::one()).is_one())
-            })
-            .collect();
-        result.truncate(self.len);
-        Ok(result)
+    pub(crate) fn values(&self) -> PyResult<Vec<BlockType>> {
+        Ok(self.blocks.clone())
     }
 
     #[inline]
@@ -174,18 +147,27 @@ impl BitVector {
 mod tests {
     use pyo3::Python;
 
-    use super::BitVector;
+    use super::*;
 
     fn create_test_bit_vector() -> BitVector {
         let bits = [true, false, true, true, false, true, false, false].repeat(999);
-        BitVector::new(bits).unwrap()
+        let blocks = bits
+            .chunks(BlockType::BITS as usize)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+            })
+            .collect::<Vec<_>>();
+        BitVector::new(blocks, bits.len()).unwrap()
     }
 
     #[test]
     fn test_empty_bit_vector() {
         Python::initialize();
 
-        let bv = BitVector::new(vec![]).unwrap();
+        let bv = BitVector::new(vec![], 0).unwrap();
 
         // Access should fail on empty vector
         assert_eq!(
@@ -194,7 +176,7 @@ mod tests {
         );
 
         // Values should return empty vector
-        assert_eq!(bv.values().unwrap(), Vec::<bool>::new());
+        assert_eq!(bv.values().unwrap(), Vec::<BlockType>::new());
 
         // Rank should return 0
         assert_eq!(bv.rank(true, 0).unwrap(), 0);
@@ -210,9 +192,18 @@ mod tests {
         Python::initialize();
 
         let bits = vec![true; 1024];
-        let bv = BitVector::new(bits.clone()).unwrap();
+        let blocks = bits
+            .chunks(BlockType::BITS as usize)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+            })
+            .collect::<Vec<_>>();
+        let bv = BitVector::new(blocks.clone(), bits.len()).unwrap();
 
-        assert_eq!(bv.values().unwrap(), bits);
+        assert_eq!(bv.values().unwrap(), blocks);
         for i in 0..1024 {
             assert!(bv.access(i).unwrap());
             assert_eq!(bv.rank(true, i + 1).unwrap(), i + 1);
@@ -251,7 +242,16 @@ mod tests {
         let bv = create_test_bit_vector();
 
         let expected = [true, false, true, true, false, true, false, false].repeat(999);
-        assert_eq!(bv.values().unwrap(), expected);
+        let expected_blocks = expected
+            .chunks(BlockType::BITS as usize)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(bv.values().unwrap(), expected_blocks);
     }
 
     #[test]
