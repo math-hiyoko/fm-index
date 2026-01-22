@@ -40,9 +40,18 @@ impl MultiFMIndex {
 
         let suffix_idx = suffix_array(&data);
 
-        let data_none_bitvector = BitVector::new(
+        let data_zero_bitvector = BitVector::new(
             data.par_iter()
-                .map(|value| value.is_none())
+                .map(|value| value.is_zero())
+                .chunks(BlockType::BITS as usize)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .enumerate()
+                        .fold(BlockType::zero(), |acc, (i, &bit)| {
+                            acc | ((bit as BlockType) << i)
+                        })
+                })
                 .collect::<Vec<_>>(),
             data.len(),
         )?;
@@ -51,11 +60,11 @@ impl MultiFMIndex {
             .par_iter()
             .step_by(ARRAY_SAMPLING_RATE)
             .map(|&suffix_idx| {
-                let doc_id = data_none_bitvector.rank(true, suffix_idx)?;
+                let doc_id = data_zero_bitvector.rank(true, suffix_idx)?;
                 let doc_start_idx = if doc_id == 0 {
                     0
                 } else {
-                    data_none_bitvector.select(true, doc_id)?.unwrap() + 1
+                    data_zero_bitvector.select(true, doc_id)?.unwrap() + 1
                 };
                 let offset = suffix_idx - doc_start_idx;
                 Ok((doc_id, offset))
@@ -71,7 +80,7 @@ impl MultiFMIndex {
                     .burrows_wheeler_transform()
                     .select(0u32, idx)?
                     .unwrap();
-                let doc_id = data_none_bitvector.rank(true, base_fm_index.suffix_idx(k)?)?;
+                let doc_id = data_zero_bitvector.rank(true, base_fm_index.suffix_idx(k)?)?;
                 Ok((k, doc_id))
             })
             .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
