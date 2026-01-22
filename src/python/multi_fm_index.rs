@@ -17,12 +17,11 @@ use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::M
 ///
 /// ### Construction
 /// #### Time / Space Complexity
-/// - Time: `O(S log σ)`
-/// - Space: `O(S log σ)`
+/// - Time: `O(S)`
+/// - Space: `O(S)`
 ///
 /// where:
 /// - `S` = total length of all indexed strings
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
 ///
 /// ```python
 /// from fm_index import MultiFMIndex
@@ -97,7 +96,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(S log σ)`
+    /// - Time: `O(S)`
     /// - Space: `O(S)`
     ///
     /// #### Examples
@@ -114,7 +113,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -131,7 +130,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -149,7 +148,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |total_count|) log σ)`
+    /// - Time: `O(|pattern| + |total_count|)`
     /// - Space: `O(|pattern| + |output|)`
     ///
     /// #### Examples
@@ -169,7 +168,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |total_count|) log σ)`
+    /// - Time: `O(|pattern| + |total_count|)`
     /// - Space: `O(|pattern| + |total_count|)`
     ///
     /// #### Examples
@@ -192,7 +191,7 @@ impl PyMultiFMIndex {
     ///
     /// ### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)` to initialize, then `O(log σ)` per yielded occurrence.
+    /// - Time: `O(|pattern|)` to initialize, then `O(1)` per yielded occurrence.
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -214,7 +213,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|prefix| log σ)`
+    /// - Time: `O(|prefix|)`
     /// - Space: `O(|prefix|)`
     ///
     /// #### Examples
@@ -232,7 +231,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|suffix| log σ)`
+    /// - Time: `O(|suffix|)`
     /// - Space: `O(|suffix|)`
     ///
     /// #### Examples

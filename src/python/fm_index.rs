@@ -18,12 +18,11 @@ use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
 ///
 /// ### Construction
 /// #### Time / Space Complexity
-/// - Time: `O(N log σ)`
-/// - Space: `O(N log σ)`
+/// - Time: `O(N)`
+/// - Space: `O(N)`
 ///
 /// where:
 /// - `N` = length of the indexed string
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
 ///
 /// ```python
 /// from fm_index import FMIndex
@@ -82,7 +81,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(N log σ)`
+    /// - Time: `O(N)`
     /// - Space: `O(N)`
     ///
     /// #### Examples
@@ -99,7 +98,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -116,7 +115,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -136,7 +135,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |count|) log σ)`
+    /// - Time: `O(|pattern| + |count|)`
     /// - Space: `O(|pattern| + |count|)`
     ///
     /// #### Examples
@@ -159,7 +158,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)` for initialization, `O(log σ)` per yielded position
+    /// - Time: `O(|pattern|)` for initialization, `O(1)` per yielded position
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -180,7 +179,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|prefix| log σ)`
+    /// - Time: `O(|prefix|)`
     /// - Space: `O(|prefix|)`
     ///
     /// #### Examples
@@ -197,12 +196,8 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|suffix| log σ)`
+    /// - Time: `O(|suffix|)`
     /// - Space: `O(|suffix|)`
-    ///
-    /// where:
-    /// - `|suffix|` = length of the suffix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
     ///
     /// #### Examples
     /// ```python

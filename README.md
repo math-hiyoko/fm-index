@@ -35,8 +35,7 @@ FMIndex builds a compressed index over a single string,
 allowing fast substring search without scanning the original data.  
 
 ### Construction Complexity
-- Time / Space: `O(|data| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2). 
+- Time / Space: `O(|data|)`  
 
 #### Example
 
@@ -90,8 +89,7 @@ Query processing is internally parallelized where possible,
 making multi-document search efficient in practice.  
 
 ### Construction Complexity
-- Time / Space: `O(|''.join(data)| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2).   
+- Time / Space: `O(|''.join(data)|)`   
 
 ```python
 from fm_index import MultiFMIndex

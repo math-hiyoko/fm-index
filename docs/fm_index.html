@@ -131,15 +131,14 @@ are optimized using data-parallel execution.  </p>
 <h4 id="time-space-complexity">Time / Space Complexity</h4>
 
 <ul>
-<li>Time: <code>O(N log σ)</code></li>
-<li>Space: <code>O(N log σ)</code></li>
+<li>Time: <code>O(N)</code></li>
+<li>Space: <code>O(N)</code></li>
 </ul>
 
 <p>where:</p>
 
 <ul>
 <li><code>N</code> = length of the indexed string</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
 </ul>
 
 <div class="pdoc-code codehilite">
@@ -178,7 +177,7 @@ are optimized using data-parallel execution.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(N log σ)</code></li>
+<li>Time: <code>O(N)</code></li>
 <li>Space: <code>O(N)</code></li>
 </ul>
 
@@ -208,7 +207,7 @@ are optimized using data-parallel execution.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Time: <code>O(|pattern|)</code></li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -238,7 +237,7 @@ are optimized using data-parallel execution.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Time: <code>O(|pattern|)</code></li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -271,7 +270,7 @@ enumerate large result sets.<br />
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O((|pattern| + |count|) log σ)</code></li>
+<li>Time: <code>O(|pattern| + |count|)</code></li>
 <li>Space: <code>O(|pattern| + |count|)</code></li>
 </ul>
 
@@ -306,7 +305,7 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code> for initialization, <code>O(log σ)</code> per yielded position</li>
+<li>Time: <code>O(|pattern|)</code> for initialization, <code>O(1)</code> per yielded position</li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -339,7 +338,7 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|prefix| log σ)</code></li>
+<li>Time: <code>O(|prefix|)</code></li>
 <li>Space: <code>O(|prefix|)</code></li>
 </ul>
 
@@ -369,15 +368,8 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|suffix| log σ)</code></li>
+<li>Time: <code>O(|suffix|)</code></li>
 <li>Space: <code>O(|suffix|)</code></li>
-</ul>
-
-<p>where:</p>
-
-<ul>
-<li><code>|suffix|</code> = length of the suffix</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
 </ul>
 
 <h4 id="examples">Examples</h4>
@@ -414,15 +406,14 @@ making multi-document search efficient in practice.  </p>
 <h4 id="time-space-complexity">Time / Space Complexity</h4>
 
 <ul>
-<li>Time: <code>O(S log σ)</code></li>
-<li>Space: <code>O(S log σ)</code></li>
+<li>Time: <code>O(S)</code></li>
+<li>Space: <code>O(S)</code></li>
 </ul>
 
 <p>where:</p>
 
 <ul>
 <li><code>S</code> = total length of all indexed strings</li>
-<li><code>σ</code> = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)</li>
 </ul>
 
 <div class="pdoc-code codehilite">
@@ -461,7 +452,7 @@ making multi-document search efficient in practice.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(S log σ)</code></li>
+<li>Time: <code>O(S)</code></li>
 <li>Space: <code>O(S)</code></li>
 </ul>
 
@@ -491,7 +482,7 @@ making multi-document search efficient in practice.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Time: <code>O(|pattern|)</code></li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -521,7 +512,7 @@ making multi-document search efficient in practice.  </p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code></li>
+<li>Time: <code>O(|pattern|)</code></li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -552,7 +543,7 @@ Returns {doc_index: count}.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O((|pattern| + |total_count|) log σ)</code></li>
+<li>Time: <code>O(|pattern| + |total_count|)</code></li>
 <li>Space: <code>O(|pattern| + |output|)</code></li>
 </ul>
 
@@ -584,7 +575,7 @@ Internally, result enumeration and aggregation may be parallelized.<br />
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O((|pattern| + |total_count|) log σ)</code></li>
+<li>Time: <code>O(|pattern| + |total_count|)</code></li>
 <li>Space: <code>O(|pattern| + |total_count|)</code></li>
 </ul>
 
@@ -619,7 +610,7 @@ an intermediate result dictionary.</p>
 <h3 id="complexity">Complexity</h3>
 
 <ul>
-<li>Time: <code>O(|pattern| log σ)</code> to initialize, then <code>O(log σ)</code> per yielded occurrence.</li>
+<li>Time: <code>O(|pattern|)</code> to initialize, then <code>O(1)</code> per yielded occurrence.</li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -653,7 +644,7 @@ an intermediate result dictionary.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|prefix| log σ)</code></li>
+<li>Time: <code>O(|prefix|)</code></li>
 <li>Space: <code>O(|prefix|)</code></li>
 </ul>
 
@@ -683,7 +674,7 @@ an intermediate result dictionary.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|suffix| log σ)</code></li>
+<li>Time: <code>O(|suffix|)</code></li>
 <li>Space: <code>O(|suffix|)</code></li>
 </ul>
 
