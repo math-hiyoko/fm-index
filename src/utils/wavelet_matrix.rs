@@ -1,13 +1,16 @@
 use std::{collections, hash, iter, ops};
 
-use num_traits::{PrimInt, Zero};
+use num_traits::{One, PrimInt, Zero};
 use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
 };
 use rayon::prelude::*;
 
-use super::{bit_vector::BitVector, bit_width::BitWidth};
+use super::{
+    bit_vector::{BitVector, BlockType},
+    bit_width::BitWidth,
+};
 
 #[derive(Clone)]
 pub(crate) struct WaveletMatrix<NumberType: PrimInt> {
@@ -15,7 +18,7 @@ pub(crate) struct WaveletMatrix<NumberType: PrimInt> {
     is_none: BitVector,
     height: usize,
     layers: Vec<BitVector>,
-    zeros: Vec<usize>,
+    zeros_count_per_layer: Vec<usize>,
     begin_index: collections::HashMap<NumberType, usize>,
 }
 impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
@@ -24,7 +27,19 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
     pub(crate) fn new(data: Vec<Option<NumberType>>) -> PyResult<Self> {
         let len = data.len();
 
-        let is_none = BitVector::new(data.iter().map(|value| value.is_none()).collect::<Vec<_>>())?;
+        let is_none = BitVector::new(
+            data.par_iter()
+                .map(|value| value.is_none())
+                .chunks(BlockType::BITS as usize)
+                .map(|chunk| {
+                    chunk
+                        .into_iter()
+                        .enumerate()
+                        .fold(0u64, |acc, (i, bit)| acc | ((bit as BlockType) << i))
+                })
+                .collect::<Vec<_>>(),
+            len,
+        )?;
 
         let mut current_values = data.into_iter().flatten().collect::<Vec<_>>();
         let height = current_values
@@ -34,18 +49,30 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
             .bit_width();
 
         let mut zeros_count_per_layer = Vec::with_capacity(height);
-        let mut layer_bits_vec = Vec::with_capacity(height);
+        let mut layer_blocks_vec = Vec::with_capacity(height);
         for depth in 0..height {
-            let current_layer_bits = current_values
+            let current_layer_blocks = current_values
                 .par_iter()
                 .map(|&value| (value >> (height - depth - 1) & NumberType::one()).is_one())
+                .chunks(BlockType::BITS as usize)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .enumerate()
+                        .fold(0u64, |acc, (i, &bit)| acc | ((bit as BlockType) << i))
+                })
                 .collect::<Vec<_>>();
-            let zeros_count = current_layer_bits.par_iter().filter(|&bit| !bit).count();
+            let zeros_count = current_values.len()
+                - current_layer_blocks
+                    .par_iter()
+                    .map(|&block| block.count_ones() as usize)
+                    .sum::<usize>();
 
             let mut reordered_values = vec![NumberType::zero(); current_values.len()];
             let mut zeros_write_pos = 0usize;
             let mut ones_write_pos = zeros_count;
-            for (&bit, value) in iter::zip(&current_layer_bits, current_values) {
+            for value in current_values.into_iter() {
+                let bit = (value >> (height - depth - 1) & NumberType::one()).is_one();
                 if bit {
                     reordered_values[ones_write_pos] = value;
                     ones_write_pos += 1;
@@ -56,13 +83,13 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
             }
 
             zeros_count_per_layer.push(zeros_count);
-            layer_bits_vec.push(current_layer_bits);
+            layer_blocks_vec.push(current_layer_blocks);
             current_values = reordered_values;
         }
 
-        let layers = layer_bits_vec
+        let layers = layer_blocks_vec
             .into_par_iter()
-            .map(BitVector::new)
+            .map(|blocks| BitVector::new(blocks, current_values.len()))
             .collect::<PyResult<Vec<_>>>()?;
 
         let mut value_begin_positions = collections::HashMap::new();
@@ -78,7 +105,7 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
             is_none,
             height,
             layers,
-            zeros: zeros_count_per_layer,
+            zeros_count_per_layer,
             begin_index: value_begin_positions,
         })
     }
@@ -99,7 +126,7 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
 
         index -= self.is_none.rank(true, index)?;
         let mut reconstructed_value = NumberType::zero();
-        for (layer, zeros_count) in iter::zip(&self.layers, &self.zeros) {
+        for (layer, zeros_count) in iter::zip(&self.layers, &self.zeros_count_per_layer) {
             let bit = layer.access(index)?;
             reconstructed_value <<= NumberType::one();
             if bit {
@@ -119,9 +146,20 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
         let non_none_count = self.is_none.rank(false, self.len)?;
         let mut non_none_indices = (0..non_none_count).collect::<Vec<_>>();
         let mut non_none_values = vec![NumberType::zero(); non_none_count];
-        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate() {
+        for (depth, (layer, zeros_count)) in
+            iter::zip(&self.layers, &self.zeros_count_per_layer).enumerate()
+        {
             debug_assert_eq!(non_none_count, layer.len());
-            let layer_bits = layer.values()?;
+            let layer_bits = layer
+                .values()?
+                .into_par_iter()
+                .flat_map_iter(|block| {
+                    (0..BlockType::BITS).map(move |i| ((block >> i) & BlockType::one()).is_one())
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .take(self.len)
+                .collect::<Vec<_>>();
             let cumulative_rank = iter::once([0usize; 2])
                 .chain(layer_bits.iter().scan([0usize; 2], |acc, &bit| {
                     acc[bit as usize] += 1;
@@ -144,7 +182,17 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
                 });
         }
 
-        let none_flags = self.is_none.values()?;
+        let none_flags = self
+            .is_none
+            .values()?
+            .into_par_iter()
+            .flat_map_iter(|block| {
+                (0..BlockType::BITS).map(move |i| ((block >> i) & BlockType::one()).is_one())
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .take(self.len)
+            .collect::<Vec<_>>();
         let mut result = Vec::with_capacity(self.len);
         let mut non_none_iter = non_none_values.iter();
         for &is_none_flag in none_flags.iter() {
@@ -179,7 +227,9 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
             None => return Ok(0usize),
         };
 
-        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate() {
+        for (depth, (layer, zeros_count)) in
+            iter::zip(&self.layers, &self.zeros_count_per_layer).enumerate()
+        {
             let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
                 end = zeros_count + layer.rank(bit, end)?;
@@ -213,7 +263,9 @@ impl<NumberType: hash::Hash + PrimInt + ops::BitOrAssign + ops::ShlAssign + BitW
         };
 
         let mut index = value_start_pos + kth - 1;
-        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros).enumerate().rev()
+        for (depth, (layer, zeros_count)) in iter::zip(&self.layers, &self.zeros_count_per_layer)
+            .enumerate()
+            .rev()
         {
             let bit = (value >> (self.height - depth - 1) & NumberType::one()).is_one();
             if bit {
