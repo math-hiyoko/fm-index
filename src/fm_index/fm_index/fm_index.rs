@@ -1,4 +1,4 @@
-use std::{char, hash, iter, ops};
+use std::{char, iter};
 
 use num_traits::Zero;
 use pyo3::PyResult;

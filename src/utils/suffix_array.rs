@@ -1,5 +1,5 @@
 // Adapted from: https://github.com/rust-lang-ja/ac-library-rs/blob/0cdbc5e2ad110b688b0239e0208e275dde94a1e2/src/string.rs
-use std::{cmp, fmt, hash, iter, mem, ops};
+use std::{cmp, fmt, iter, mem, ops};
 
 use num_traits::PrimInt;
 use rayon::prelude::*;
@@ -318,7 +318,7 @@ pub(crate) fn suffix_array(data: &[u32]) -> Vec<usize> {
             .map(|x| x as usize)
             .collect()
     } else if data.len() <= u32::MAX as usize {
-        let data_usize = data.iter().map(|&x| x as u32).collect::<Vec<_>>();
+        let data_usize = data.to_vec();
         let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u32;
         suffix_array_inner(data_usize, alphabet_max)
             .into_iter()

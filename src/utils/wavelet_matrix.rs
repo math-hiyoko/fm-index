@@ -9,7 +9,7 @@ use rayon::prelude::*;
 
 use super::{
     bit_vector::{BitVector, BlockType},
-    bit_width::BitWidth,
+    bit_width::bit_width,
 };
 
 #[derive(Clone)]
@@ -24,7 +24,7 @@ impl WaveletMatrix {
     pub(crate) fn new(values: Vec<u32>) -> PyResult<Self> {
         let len = values.len();
 
-        let height = values.par_iter().max().unwrap_or(&0u32).bit_width();
+        let height = bit_width(*values.par_iter().max().unwrap_or(&0u32));
 
         let mut zeros_count_per_layer = Vec::with_capacity(height);
         let mut layer_blocks_vec = Vec::with_capacity(height);
@@ -130,15 +130,7 @@ impl WaveletMatrix {
             let bits = layer
                 .values()?
                 .into_par_iter()
-                .flat_map_iter(|block| {
-                    (0..BlockType::BITS).map(move |i| {
-                        if (block >> i) & 1u64 == 1 {
-                            true
-                        } else {
-                            false
-                        }
-                    })
-                })
+                .flat_map_iter(|block| (0..BlockType::BITS).map(move |i| (block >> i) & 1u64 == 1))
                 .collect::<Vec<_>>()
                 .into_iter()
                 .take(self.len)
@@ -172,7 +164,7 @@ impl WaveletMatrix {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
 
-        if value.bit_width() as usize > self.height {
+        if bit_width(value) > self.height {
             return Ok(0usize);
         }
 
@@ -202,7 +194,7 @@ impl WaveletMatrix {
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
-        if value.bit_width() as usize > self.height {
+        if bit_width(value) > self.height {
             return Ok(None);
         }
 

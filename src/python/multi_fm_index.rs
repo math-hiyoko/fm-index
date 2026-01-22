@@ -3,7 +3,7 @@ use std::sync;
 use pyo3::{
     PyResult,
     prelude::*,
-    types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringData, PyStringMethods},
+    types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringMethods},
 };
 
 use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::MultiFMIndex};

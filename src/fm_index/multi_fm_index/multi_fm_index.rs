@@ -1,4 +1,4 @@
-use std::{collections, hash, iter, ops};
+use std::{collections, iter};
 
 use num_traits::Zero;
 use pyo3::PyResult;
@@ -7,7 +7,6 @@ use rayon::prelude::*;
 use crate::fm_index::base_fm_index::{ARRAY_SAMPLING_RATE, BaseFMIndex};
 use crate::utils::{
     bit_vector::{BitVector, BlockType},
-    bit_width::BitWidth,
     suffix_array::suffix_array,
 };
 

@@ -6,7 +6,6 @@ use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
 };
-use rayon::prelude::*;
 
 use crate::utils::bit_select::BitSelect;
 
@@ -57,11 +56,6 @@ impl BitVector {
             ranks,
             select_index,
         })
-    }
-
-    #[inline]
-    pub(crate) fn len(&self) -> usize {
-        self.len
     }
 
     #[inline]
