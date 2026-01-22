@@ -5,7 +5,11 @@ use pyo3::PyResult;
 use rayon::prelude::*;
 
 use crate::fm_index::base_fm_index::{ARRAY_SAMPLING_RATE, BaseFMIndex};
-use crate::utils::{bit_vector::BitVector, bit_width::BitWidth, suffix_array::suffix_array_option};
+use crate::utils::{
+    bit_vector::{BitVector, BlockType},
+    bit_width::BitWidth,
+    suffix_array::suffix_array_option,
+};
 
 #[derive(Clone)]
 pub(crate) struct MultiFMIndex<
@@ -39,7 +43,15 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
         let data_none_bitvector = BitVector::new(
             data.par_iter()
                 .map(|value| value.is_none())
+                .chunks(BlockType::BITS as usize)
+                .map(|chunk| {
+                    chunk
+                        .into_iter()
+                        .enumerate()
+                        .fold(0u64, |acc, (i, bit)| acc | ((bit as BlockType) << i))
+                })
                 .collect::<Vec<_>>(),
+            data.len(),
         )?;
 
         let pos = suffix_idx
