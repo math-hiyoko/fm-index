@@ -31,10 +31,10 @@ def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 
 def test_str(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
-    assert str(fm_index_empty) == "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
-    assert str(fm_index_ucs1) == "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
-    assert str(fm_index_ucs2) == "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
-    assert str(fm_index_ucs4) == "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
+    assert str(fm_index_empty) == "FMIndex(len=0, max_bit=0)"
+    assert str(fm_index_ucs1) == "FMIndex(len=11, max_bit=7)"
+    assert str(fm_index_ucs2) == "FMIndex(len=13, max_bit=14)"
+    assert str(fm_index_ucs4) == "FMIndex(len=15, max_bit=17)"
 
 
 def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):

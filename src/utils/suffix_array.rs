@@ -2,6 +2,7 @@
 use std::{cmp, fmt, hash, iter, mem, ops};
 
 use num_traits::PrimInt;
+use rayon::prelude::*;
 
 fn suffix_array_naive<IndexType>(data: Vec<IndexType>) -> Vec<IndexType>
 where
@@ -284,7 +285,7 @@ where
 pub(crate) fn suffix_array(data: &[u32]) -> Vec<usize> {
     fn to_usize_compress(data: &[u32]) -> Vec<usize> {
         let mut unique_values = data.to_vec();
-        unique_values.sort();
+        unique_values.par_sort();
         unique_values.dedup();
 
         let value_index = unique_values
