@@ -30,7 +30,7 @@ def random_fm_index(random_data: str) -> FMIndex:
     return FMIndex(random_data)
 
 
-@pytest.mark.parametrize("size", [5000, 50000, 500000])
+@pytest.mark.parametrize("size", [1000, 10000, 100000])
 @pytest.mark.parametrize("ucs", ["ucs1", "ucs2", "ucs4"])
 class BenchFMIndex:
     def bench_construction(self, benchmark, random_data):
