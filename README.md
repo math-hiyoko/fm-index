@@ -10,6 +10,7 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/fm-index?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GREEN&left_text=PyPI%20downloads)](https://pepy.tech/projects/fm-index)
 ![PyPI - Format](https://img.shields.io/pypi/format/fm-index)
 ![Rust](https://img.shields.io/badge/powered%20by-Rust-orange)
+![Unsafe](https://img.shields.io/badge/unsafe-0-success)
 
 
 High-performance FM-index implementation powered by Rust,  
@@ -23,6 +24,7 @@ designed for fast substring search on large texts and collections
 - Fast count / locate substring queries
 - Data-parallel optimizations across index construction and queries
 - Supports single text and multiple documents
+- Safe Rust (no unsafe)
 
 ## Installation
 ```bash
@@ -138,6 +140,10 @@ for doc_id, pos in mfm.iter_locate(pattern="検索"):
 mfm.startswith(prefix="政府は")
 mfm.endswith(suffix="注目している。")
 ```
+
+## Safety
+- Powered by safe Rust
+- Memory-safe by design
 
 ## Development & Testing
 
