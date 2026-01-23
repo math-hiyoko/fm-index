@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from fm_index import MultiFMIndex
@@ -49,26 +51,11 @@ def test_str(
     multi_fm_index_ucs2,
     multi_fm_index_ucs4,
 ):
-    assert (
-        str(multi_fm_index_empty)
-        == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)"
-    )
-    assert (
-        str(multi_fm_index_empties)
-        == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)"
-    )
-    assert (
-        str(multi_fm_index_ucs1)
-        == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)"
-    )
-    assert (
-        str(multi_fm_index_ucs2)
-        == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)"
-    )
-    assert (
-        str(multi_fm_index_ucs4)
-        == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)"
-    )
+    assert str(multi_fm_index_empty) == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)"
+    assert str(multi_fm_index_empties) == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)"
+    assert str(multi_fm_index_ucs1) == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)"
+    assert str(multi_fm_index_ucs2) == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)"
+    assert str(multi_fm_index_ucs4) == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)"
 
 
 def test_item(
@@ -265,3 +252,59 @@ def test_large_texts():
         for doc_id, offsets in multi_fm_index_large.locate(pattern).items():
             for offset in offsets:
                 assert large_texts[doc_id][offset : offset + len(pattern)] == pattern
+
+
+def test_pickle_empty():
+    multi_fm_index = MultiFMIndex([])
+    pickled = pickle.dumps(multi_fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 0
+    assert unpickled.item() == []
+    assert str(unpickled) == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)"
+
+
+def test_pickle_empties():
+    multi_fm_index = MultiFMIndex(["", "", ""])
+    pickled = pickle.dumps(multi_fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 3
+    assert unpickled.item() == ["", "", ""]
+    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)"
+
+
+def test_pickle_ucs1():
+    multi_fm_index = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
+    pickled = pickle.dumps(multi_fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 3
+    assert unpickled.item() == ["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"]
+    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)"
+    assert unpickled.count("abc") == {0: 4, 1: 3, 2: 3}
+    assert unpickled.locate("abc") == {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
+
+
+def test_pickle_ucs2():
+    multi_fm_index = MultiFMIndex(["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"])
+    pickled = pickle.dumps(multi_fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 3
+    assert unpickled.item() == ["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"]
+    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)"
+    assert unpickled.count("あいう") == {0: 3, 1: 2, 2: 2}
+    assert unpickled.locate("あいう") == {0: [6, 3, 0], 1: [5, 2], 2: [5, 0]}
+
+
+def test_pickle_ucs4():
+    multi_fm_index = MultiFMIndex(["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"])
+    pickled = pickle.dumps(multi_fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 3
+    assert unpickled.item() == ["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"]
+    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)"
+    assert unpickled.count("😀😃😀") == {0: 2, 1: 1, 2: 1}
+    assert unpickled.locate("😀😃😀") == {0: [2, 0], 1: [2], 2: [0]}

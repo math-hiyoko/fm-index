@@ -3,12 +3,13 @@ use std::collections;
 use num_traits::Zero;
 use pyo3::PyResult;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::utils::wavelet_matrix::WaveletMatrix;
 
 pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct BaseFMIndex {
     len: usize,
     zero_suffix_idx: usize,

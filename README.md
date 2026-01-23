@@ -24,6 +24,7 @@ designed for fast substring search on large texts and collections
 - Fast count / locate substring queries
 - Data-parallel optimizations across index construction and queries
 - Supports single text and multiple documents
+- Pickle serialization support for efficient index persistence
 - Safe Rust (no unsafe)
 
 ## Installation
@@ -140,6 +141,49 @@ for doc_id, pos in mfm.iter_locate(pattern="検索"):
 mfm.startswith(prefix="政府は")
 mfm.endswith(suffix="注目している。")
 ```
+
+## Serialization (Pickle Support)
+
+Both `FMIndex` and `MultiFMIndex` support Python's pickle protocol,
+allowing you to save and load pre-built indices efficiently.
+
+The internal data structures are serialized directly in binary format,
+making deserialization much faster than rebuilding the index from scratch.
+
+### Save Index to File
+```python
+import pickle
+from fm_index import FMIndex, MultiFMIndex
+
+# Build and save FMIndex
+fm = FMIndex("large genome sequence..." * 10000)
+with open("genome.fmindex", "wb") as f:
+    pickle.dump(fm, f)
+
+# Build and save MultiFMIndex
+mfm = MultiFMIndex(["document1", "document2", ...])
+with open("documents.mfmindex", "wb") as f:
+    pickle.dump(mfm, f)
+```
+
+### Load Index from File
+```python
+# Load FMIndex
+with open("genome.fmindex", "rb") as f:
+    fm = pickle.load(f)
+
+# Load MultiFMIndex
+with open("documents.mfmindex", "rb") as f:
+    mfm = pickle.load(f)
+
+# Use immediately without reconstruction
+result = fm.locate("ACGT")
+```
+
+This is particularly useful when:
+- Working with large datasets where index construction is expensive
+- Deploying pre-built indices in production environments
+- Sharing indices across different processes or machines
 
 ## Safety
 - Powered by safe Rust

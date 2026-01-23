@@ -3,10 +3,11 @@ use std::{char, iter};
 use num_traits::Zero;
 use pyo3::PyResult;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{fm_index::base_fm_index::BaseFMIndex, utils::suffix_array::suffix_array};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct FMIndex {
     len: usize,
     base_fm_index: BaseFMIndex,

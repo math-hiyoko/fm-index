@@ -17,7 +17,7 @@ impl IterLocate {
         Ok(Self {
             k: start,
             end,
-            fm_index: fm_index.clone(),
+            fm_index,
         })
     }
 }

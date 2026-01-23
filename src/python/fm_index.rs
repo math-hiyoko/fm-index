@@ -2,8 +2,9 @@ use std::sync;
 
 use pyo3::{
     PyResult,
+    exceptions::PyValueError,
     prelude::*,
-    types::{PyList, PyString, PyStringMethods},
+    types::{PyBytes, PyBytesMethods, PyList, PyString, PyStringMethods},
 };
 
 use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
@@ -29,10 +30,25 @@ use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
 ///
 /// fm = FMIndex("mississippi")
 /// ```
+///
+/// ### Serialization
+/// FMIndex supports Python's pickle protocol for efficient persistence:
+///
+/// ```python
+/// import pickle
+///
+/// # Save index
+/// with open("index.pkl", "wb") as f:
+///     pickle.dump(fm, f)
+///
+/// # Load index
+/// with open("index.pkl", "rb") as f:
+///     fm = pickle.load(f)
+/// ```
 #[derive(Clone)]
-#[pyclass(name = "FMIndex")]
+#[pyclass(name = "FMIndex", module = "fm_index")]
 pub(crate) struct PyFMIndex {
-    inner: FMIndex,
+    inner: sync::Arc<FMIndex>,
 }
 
 #[pymethods]
@@ -43,7 +59,9 @@ impl PyFMIndex {
         let data = data.to_str()?;
         py.detach(move || {
             let inner = FMIndex::new(data)?;
-            Ok(PyFMIndex { inner })
+            Ok(PyFMIndex {
+                inner: sync::Arc::new(inner),
+            })
         })
     }
 
@@ -74,7 +92,39 @@ impl PyFMIndex {
     }
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__copy__(py)
+        py.detach(move || {
+            Ok(PyFMIndex {
+                inner: sync::Arc::new((*self.inner).clone()),
+            })
+        })
+    }
+
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
+        // Return (class, args, state) where:
+        // - class: the class to instantiate
+        // - args: arguments for __new__ (empty string for us)
+        // - state: will be passed to __setstate__
+        let cls = py.import("fm_index")?.getattr("FMIndex")?.into();
+        let args = (PyString::new(py, ""),)
+            .into_pyobject(py)?
+            .into_any()
+            .unbind();
+        let state: Py<PyAny> = self.__getstate__(py)?.into();
+        Ok((cls, args, state))
+    }
+
+    fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
+        let serialized = postcard::to_allocvec(&*self.inner)
+            .map_err(|error| PyValueError::new_err(format!("Failed to serialize: {}", error)))?;
+        Ok(PyBytes::new(py, &serialized).into())
+    }
+
+    fn __setstate__(&mut self, _py: Python<'_>, state: &Bound<'_, PyBytes>) -> PyResult<()> {
+        let bytes = state.as_bytes();
+        let inner: FMIndex = postcard::from_bytes(bytes)
+            .map_err(|error| PyValueError::new_err(format!("Failed to deserialize: {}", error)))?;
+        self.inner = sync::Arc::new(inner);
+        Ok(())
     }
 
     /// Convert the FMIndex back into the original string.
@@ -172,7 +222,7 @@ impl PyFMIndex {
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
         let pattern = pattern.to_str()?;
         let inner = self.inner.clone();
-        py.detach(move || IterLocate::new(pattern, sync::Arc::new(inner)))
+        py.detach(move || IterLocate::new(pattern, inner))
     }
 
     /// Check if the indexed string starts with the given prefix.

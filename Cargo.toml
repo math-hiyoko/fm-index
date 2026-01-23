@@ -9,7 +9,9 @@ name = "fm_index"
 crate-type = ["cdylib"]
 
 [dependencies]
-num-integer = "0.1.46"
-num-traits = "0.2.19"
-pyo3 = "0.27.2"
-rayon = "1.11.0"
+num-integer = "0.1"
+num-traits = "0.2"
+postcard = { version = "1.0", features = ["alloc"] }
+pyo3 = "0.27"
+rayon = "1.11"
+serde = { version = "1.0", features = ["derive"] }
