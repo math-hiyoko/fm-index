@@ -243,7 +243,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .[test]
       - name: Run benchmarks
-        run: pytest --benchmark-only
+        run: pytest --benchmark-only --benchmark-warmup=off
 
   release:
     name: Release
