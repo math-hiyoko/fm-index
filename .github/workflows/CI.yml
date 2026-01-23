@@ -199,7 +199,7 @@ jobs:
         run: pytest --benchmark-skip
       - name: Docs check
         run: |
-          pdoc wavelet_matrix \
+          pdoc fm_index \
             --output-directory docs \
             --no-search \
             --no-show-source \
