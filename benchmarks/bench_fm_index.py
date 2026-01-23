@@ -39,26 +39,26 @@ class BenchFMIndex:
     def bench_item(self, benchmark, random_fm_index):
         benchmark(random_fm_index.item)
 
-    def bench_contains(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:5]
+    def bench_contains(self, benchmark, random_fm_index, random_data):
+        pattern = random_data[:5]
         benchmark(random_fm_index.contains, pattern)
 
-    def bench_count(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:5]
+    def bench_count(self, benchmark, random_fm_index, random_data):
+        pattern = random_data[:5]
         benchmark(random_fm_index.count, pattern)
 
-    def bench_locate(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:5]
+    def bench_locate(self, benchmark, random_fm_index, random_data):
+        pattern = random_data[:5]
         benchmark(random_fm_index.locate, pattern)
 
-    def bench_iter_locate(self, benchmark, random_fm_index):
-        pattern = random_fm_index.item()[:5]
+    def bench_iter_locate(self, benchmark, random_fm_index, random_data):
+        pattern = random_data[:5]
         benchmark(random_fm_index.iter_locate, pattern)
 
-    def bench_startswith(self, benchmark, random_fm_index):
-        prefix = random_fm_index.item()[:50]
+    def bench_startswith(self, benchmark, random_fm_index, random_data):
+        prefix = random_data[:50]
         benchmark(random_fm_index.startswith, prefix)
 
-    def bench_endswith(self, benchmark, random_fm_index):
-        suffix = random_fm_index.item()[-50:]
+    def bench_endswith(self, benchmark, random_fm_index, random_data):
+        suffix = random_data[-50:]
         benchmark(random_fm_index.endswith, suffix)
