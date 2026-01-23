@@ -204,6 +204,7 @@ jobs:
       - name: Run tests
         run: pytest --benchmark-skip
       - name: Docs check
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
         run: |
           pdoc fm_index \
             --output-directory docs \
