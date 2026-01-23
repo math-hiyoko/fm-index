@@ -217,6 +217,7 @@ jobs:
             exit 1
           fi
       - name: Format check
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
         run: ruff check
 
   python-benchmark:
