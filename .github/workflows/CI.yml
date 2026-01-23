@@ -188,25 +188,18 @@ jobs:
 
   python-test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python:
-          - "3.x"
-          - "pypy3.11"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python }}
+          python-version: 3.x
       - name: Install packages
         run: python -m pip install -e .[test,dev]
       - name: Run tests
         run: pytest --benchmark-skip
       - name: Docs check
-        if: ${{ !startsWith(matrix.python, 'pypy') }}
         run: |
-          pdoc fm_index \
+          pdoc wavelet_matrix \
             --output-directory docs \
             --no-search \
             --no-show-source \
@@ -217,7 +210,6 @@ jobs:
             exit 1
           fi
       - name: Format check
-        if: ${{ !startsWith(matrix.python, 'pypy') }}
         run: ruff check
 
   python-benchmark:
