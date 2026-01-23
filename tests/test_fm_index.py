@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from fm_index import FMIndex
@@ -107,3 +109,51 @@ def test_large():
         assert fm_index_large.count(pattern) == large_text.count(pattern)
         for offset in fm_index_large.locate(pattern):
             assert large_text[offset : offset + len(pattern)] == pattern
+
+
+def test_pickle_empty():
+    fm_index = FMIndex("")
+    pickled = pickle.dumps(fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 0
+    assert unpickled.item() == ""
+    assert str(unpickled) == "FMIndex(len=0, max_bit=0)"
+
+
+def test_pickle_ucs1():
+    fm_index = FMIndex("mississippi")
+    pickled = pickle.dumps(fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 11
+    assert unpickled.item() == "mississippi"
+    assert str(unpickled) == "FMIndex(len=11, max_bit=7)"
+    assert unpickled.count("issi") == 2
+    assert unpickled.locate("issi") == [4, 1]
+    assert unpickled.startswith("mis")
+    assert unpickled.endswith("ppi")
+
+
+def test_pickle_ucs2():
+    fm_index = FMIndex("にわにはにわにわとりがいる")
+    pickled = pickle.dumps(fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 13
+    assert unpickled.item() == "にわにはにわにわとりがいる"
+    assert str(unpickled) == "FMIndex(len=13, max_bit=14)"
+    assert unpickled.count("にわ") == 3
+    assert unpickled.locate("にわ") == [6, 0, 4]
+
+
+def test_pickle_ucs4():
+    fm_index = FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")
+    pickled = pickle.dumps(fm_index)
+    unpickled = pickle.loads(pickled)
+
+    assert len(unpickled) == 15
+    assert unpickled.item() == "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
+    assert str(unpickled) == "FMIndex(len=15, max_bit=17)"
+    assert unpickled.count("🐉🔥🌊") == 3
+    assert unpickled.locate("🐉🔥🌊") == [12, 6, 1]

@@ -3,6 +3,7 @@ use std::{collections, iter};
 use num_traits::Zero;
 use pyo3::PyResult;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::fm_index::base_fm_index::{ARRAY_SAMPLING_RATE, BaseFMIndex};
 use crate::utils::{
@@ -10,7 +11,7 @@ use crate::utils::{
     suffix_array::suffix_array,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct MultiFMIndex {
     doc_len: Vec<usize>,
     total_num_chars: usize,

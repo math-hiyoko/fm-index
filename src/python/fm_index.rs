@@ -2,8 +2,9 @@ use std::sync;
 
 use pyo3::{
     PyResult,
+    exceptions::PyValueError,
     prelude::*,
-    types::{PyList, PyString, PyStringMethods},
+    types::{PyBytes, PyBytesMethods, PyList, PyString, PyStringMethods},
 };
 
 use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
@@ -29,8 +30,23 @@ use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
 ///
 /// fm = FMIndex("mississippi")
 /// ```
+///
+/// ### Serialization
+/// FMIndex supports Python's pickle protocol for efficient persistence:
+///
+/// ```python
+/// import pickle
+///
+/// # Save index
+/// with open("index.pkl", "wb") as f:
+///     pickle.dump(fm, f)
+///
+/// # Load index
+/// with open("index.pkl", "rb") as f:
+///     fm = pickle.load(f)
+/// ```
 #[derive(Clone)]
-#[pyclass(name = "FMIndex")]
+#[pyclass(name = "FMIndex", module = "fm_index")]
 pub(crate) struct PyFMIndex {
     inner: FMIndex,
 }
@@ -75,6 +91,33 @@ impl PyFMIndex {
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__copy__(py)
+    }
+
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
+        // Return (class, args, state) where:
+        // - class: the class to instantiate
+        // - args: arguments for __new__ (empty string for us)
+        // - state: will be passed to __setstate__
+        let cls = py.import("fm_index")?.getattr("FMIndex")?.into();
+        let args = (PyString::new(py, ""),)
+            .into_pyobject(py)?
+            .into_any()
+            .unbind();
+        let state: Py<PyAny> = self.__getstate__(py)?.into();
+        Ok((cls, args, state))
+    }
+
+    fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
+        let serialized = postcard::to_allocvec(&self.inner)
+            .map_err(|error| PyValueError::new_err(format!("Failed to serialize: {}", error)))?;
+        Ok(PyBytes::new(py, &serialized).into())
+    }
+
+    fn __setstate__(&mut self, _py: Python<'_>, state: &Bound<'_, PyBytes>) -> PyResult<()> {
+        let bytes = state.as_bytes();
+        self.inner = postcard::from_bytes(bytes)
+            .map_err(|error| PyValueError::new_err(format!("Failed to deserialize: {}", error)))?;
+        Ok(())
     }
 
     /// Convert the FMIndex back into the original string.

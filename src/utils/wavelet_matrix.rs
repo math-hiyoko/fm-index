@@ -6,13 +6,14 @@ use pyo3::{
     exceptions::{PyIndexError, PyValueError},
 };
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{
     bit_vector::{BitVector, BlockType},
     bit_width::bit_width,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WaveletMatrix {
     len: usize,
     height: usize,

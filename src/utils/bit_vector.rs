@@ -6,13 +6,14 @@ use pyo3::{
     PyResult,
     exceptions::{PyIndexError, PyValueError},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::utils::bit_select::BitSelect;
 
 pub(crate) type BlockType = u64;
 const SELECT_INDEX_INTERBVAL: usize = 64;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct BitVector {
     len: usize,
     blocks: Vec<BlockType>,

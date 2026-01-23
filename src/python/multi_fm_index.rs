@@ -2,18 +2,21 @@ use std::sync;
 
 use pyo3::{
     PyResult,
+    exceptions::PyValueError,
     prelude::*,
-    types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringMethods},
+    types::{
+        IntoPyDict, PyBytes, PyBytesMethods, PyDict, PyList, PySequence, PyString, PyStringMethods,
+    },
 };
 
 use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::MultiFMIndex};
 
-/// A multi-document FM-index for fast substring search across multiple strings.  
+/// A multi-document FM-index for fast substring search across multiple strings.
 ///
-/// Internally, all strings are concatenated with separators and indexed as a single FM-index,  
-/// while preserving the ability to map matches back to their original documents.  
-/// Query processing across documents is internally parallelized where applicable,  
-/// making multi-document search efficient in practice.  
+/// Internally, all strings are concatenated with separators and indexed as a single FM-index,
+/// while preserving the ability to map matches back to their original documents.
+/// Query processing across documents is internally parallelized where applicable,
+/// making multi-document search efficient in practice.
 ///
 /// ### Construction
 /// #### Time / Space Complexity
@@ -28,8 +31,23 @@ use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::M
 ///
 /// mfm = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"])
 /// ```
+///
+/// ### Serialization
+/// MultiFMIndex supports Python's pickle protocol for efficient persistence:
+///
+/// ```python
+/// import pickle
+///
+/// # Save index
+/// with open("index.pkl", "wb") as f:
+///     pickle.dump(mfm, f)
+///
+/// # Load index
+/// with open("index.pkl", "rb") as f:
+///     mfm = pickle.load(f)
+/// ```
 #[derive(Clone)]
-#[pyclass(name = "MultiFMIndex")]
+#[pyclass(name = "MultiFMIndex", module = "fm_index")]
 pub(crate) struct PyMultiFMIndex {
     inner: MultiFMIndex,
 }
@@ -90,6 +108,30 @@ impl PyMultiFMIndex {
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__copy__(py)
+    }
+
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
+        // Return (class, args, state) where:
+        // - class: the class to instantiate
+        // - args: arguments for __new__ (empty list for us)
+        // - state: will be passed to __setstate__
+        let cls = py.import("fm_index")?.getattr("MultiFMIndex")?.into();
+        let args = (PyList::empty(py),).into_pyobject(py)?.into_any().unbind();
+        let state: Py<PyAny> = self.__getstate__(py)?.into();
+        Ok((cls, args, state))
+    }
+
+    fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
+        let serialized = postcard::to_allocvec(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        Ok(PyBytes::new(py, &serialized).into())
+    }
+
+    fn __setstate__(&mut self, _py: Python<'_>, state: &Bound<'_, PyBytes>) -> PyResult<()> {
+        let bytes = state.as_bytes();
+        self.inner = postcard::from_bytes(bytes)
+            .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        Ok(())
     }
 
     /// Convert the index back into the original list of strings.
