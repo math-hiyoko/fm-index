@@ -193,7 +193,7 @@ jobs:
       matrix:
         python:
           - "3.x"
-          - "pypy3.x"
+          - "pypy3.11"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
