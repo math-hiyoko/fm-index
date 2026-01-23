@@ -48,7 +48,7 @@ use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
 #[derive(Clone)]
 #[pyclass(name = "FMIndex", module = "fm_index")]
 pub(crate) struct PyFMIndex {
-    inner: FMIndex,
+    inner: sync::Arc<FMIndex>,
 }
 
 #[pymethods]
@@ -59,7 +59,9 @@ impl PyFMIndex {
         let data = data.to_str()?;
         py.detach(move || {
             let inner = FMIndex::new(data)?;
-            Ok(PyFMIndex { inner })
+            Ok(PyFMIndex {
+                inner: sync::Arc::new(inner),
+            })
         })
     }
 
@@ -90,7 +92,11 @@ impl PyFMIndex {
     }
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__copy__(py)
+        py.detach(move || {
+            Ok(PyFMIndex {
+                inner: sync::Arc::new((*self.inner).clone()),
+            })
+        })
     }
 
     fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
@@ -108,15 +114,16 @@ impl PyFMIndex {
     }
 
     fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let serialized = postcard::to_allocvec(&self.inner)
+        let serialized = postcard::to_allocvec(&*self.inner)
             .map_err(|error| PyValueError::new_err(format!("Failed to serialize: {}", error)))?;
         Ok(PyBytes::new(py, &serialized).into())
     }
 
     fn __setstate__(&mut self, _py: Python<'_>, state: &Bound<'_, PyBytes>) -> PyResult<()> {
         let bytes = state.as_bytes();
-        self.inner = postcard::from_bytes(bytes)
+        let inner: FMIndex = postcard::from_bytes(bytes)
             .map_err(|error| PyValueError::new_err(format!("Failed to deserialize: {}", error)))?;
+        self.inner = sync::Arc::new(inner);
         Ok(())
     }
 
@@ -215,7 +222,7 @@ impl PyFMIndex {
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
         let pattern = pattern.to_str()?;
         let inner = self.inner.clone();
-        py.detach(move || IterLocate::new(pattern, sync::Arc::new(inner)))
+        py.detach(move || IterLocate::new(pattern, inner))
     }
 
     /// Check if the indexed string starts with the given prefix.

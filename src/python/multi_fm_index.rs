@@ -49,7 +49,7 @@ use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::M
 #[derive(Clone)]
 #[pyclass(name = "MultiFMIndex", module = "fm_index")]
 pub(crate) struct PyMultiFMIndex {
-    inner: MultiFMIndex,
+    inner: sync::Arc<MultiFMIndex>,
 }
 
 #[pymethods]
@@ -71,7 +71,9 @@ impl PyMultiFMIndex {
             .collect::<PyResult<Vec<_>>>()?;
         py.detach(move || {
             let inner = MultiFMIndex::new(data)?;
-            Ok(PyMultiFMIndex { inner })
+            Ok(PyMultiFMIndex {
+                inner: sync::Arc::new(inner),
+            })
         })
     }
 
@@ -107,7 +109,11 @@ impl PyMultiFMIndex {
     }
 
     fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__copy__(py)
+        py.detach(move || {
+            Ok(PyMultiFMIndex {
+                inner: sync::Arc::new((*self.inner).clone()),
+            })
+        })
     }
 
     fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
@@ -122,15 +128,16 @@ impl PyMultiFMIndex {
     }
 
     fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let serialized = postcard::to_allocvec(&self.inner)
+        let serialized = postcard::to_allocvec(&*self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
         Ok(PyBytes::new(py, &serialized).into())
     }
 
     fn __setstate__(&mut self, _py: Python<'_>, state: &Bound<'_, PyBytes>) -> PyResult<()> {
         let bytes = state.as_bytes();
-        self.inner = postcard::from_bytes(bytes)
+        let inner: MultiFMIndex = postcard::from_bytes(bytes)
             .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        self.inner = sync::Arc::new(inner);
         Ok(())
     }
 
@@ -248,7 +255,7 @@ impl PyMultiFMIndex {
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
         let pattern = pattern.to_str()?;
         let inner = self.inner.clone();
-        py.detach(move || IterLocate::new(pattern, sync::Arc::new(inner)))
+        py.detach(move || IterLocate::new(pattern, inner))
     }
 
     /// List document indices whose content starts with the prefix.
