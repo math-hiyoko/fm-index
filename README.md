@@ -226,3 +226,5 @@ pdoc fm_index \
   2000,  
   pp. 390-398,  
   https://doi.org/10.1109/SFCS.2000.892127.  
+- FM Indexを使うとWikipedia全文検索みたいなことができる  
+  https://qiita.com/math-hiyoko/items/10d50527504914e00388  
