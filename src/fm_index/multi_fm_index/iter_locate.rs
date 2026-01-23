@@ -1,21 +1,18 @@
 use std::sync;
 
-use pyo3::{PyResult, prelude::*, types::PyStringData};
+use pyo3::{PyResult, prelude::*};
 
-use super::multi_fm_index_enum::MultiFMIndexEnum;
+use super::multi_fm_index::MultiFMIndex;
 
 #[pyclass]
 pub(crate) struct IterLocate {
     k: usize,
     end: usize,
-    multi_fm_index: sync::Arc<MultiFMIndexEnum>,
+    multi_fm_index: sync::Arc<MultiFMIndex>,
 }
 
 impl IterLocate {
-    pub(crate) fn new(
-        multi_fm_index: sync::Arc<MultiFMIndexEnum>,
-        pattern: PyStringData,
-    ) -> PyResult<Self> {
+    pub(crate) fn new(pattern: &str, multi_fm_index: sync::Arc<MultiFMIndex>) -> PyResult<Self> {
         let (start, end) = multi_fm_index.range_search(pattern)?;
         Ok(Self {
             k: start,

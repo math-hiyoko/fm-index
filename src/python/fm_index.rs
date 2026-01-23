@@ -6,7 +6,7 @@ use pyo3::{
     types::{PyList, PyString, PyStringMethods},
 };
 
-use crate::fm_index::fm_index::{fm_index_enum::FMIndexEnum, iter_locate::IterLocate};
+use crate::fm_index::fm_index::{fm_index::FMIndex, iter_locate::IterLocate};
 
 /// An FM-index for efficient full-text search on a single string.
 ///
@@ -18,12 +18,11 @@ use crate::fm_index::fm_index::{fm_index_enum::FMIndexEnum, iter_locate::IterLoc
 ///
 /// ### Construction
 /// #### Time / Space Complexity
-/// - Time: `O(N log σ)`
-/// - Space: `O(N log σ)`
+/// - Time: `O(N)`
+/// - Space: `O(N)`
 ///
 /// where:
 /// - `N` = length of the indexed string
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
 ///
 /// ```python
 /// from fm_index import FMIndex
@@ -33,7 +32,7 @@ use crate::fm_index::fm_index::{fm_index_enum::FMIndexEnum, iter_locate::IterLoc
 #[derive(Clone)]
 #[pyclass(name = "FMIndex")]
 pub(crate) struct PyFMIndex {
-    inner: FMIndexEnum,
+    inner: FMIndex,
 }
 
 #[pymethods]
@@ -41,9 +40,9 @@ impl PyFMIndex {
     /// Create a FM-Index from the given string.
     #[new]
     fn new(py: Python<'_>, data: &Bound<'_, PyString>) -> PyResult<Self> {
-        let data = unsafe { data.data()? };
+        let data = data.to_str()?;
         py.detach(move || {
-            let inner = FMIndexEnum::new(data)?;
+            let inner = FMIndex::new(data)?;
             Ok(PyFMIndex { inner })
         })
     }
@@ -57,20 +56,12 @@ impl PyFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (len, code_unit, max_bit) = py.detach(|| -> PyResult<(usize, &str, usize)> {
+        let (len, max_bit) = py.detach(|| -> PyResult<(usize, usize)> {
             let len = self.inner.len()?;
-            let code_unit = match &self.inner {
-                FMIndexEnum::Ucs1(_) => "ucs1",
-                FMIndexEnum::Ucs2(_) => "ucs2",
-                FMIndexEnum::Ucs4(_) => "ucs4",
-            };
             let max_bit = self.inner.max_bit()?;
-            Ok((len, code_unit, max_bit))
+            Ok((len, max_bit))
         })?;
-        let result = format!(
-            "FMIndex(len={}, code_unit={}, max_bit={})",
-            len, code_unit, max_bit,
-        );
+        let result = format!("FMIndex(len={}, max_bit={})", len, max_bit,);
         Ok(PyString::new(py, &result).into())
     }
 
@@ -90,7 +81,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(N log σ)`
+    /// - Time: `O(N)`
     /// - Space: `O(N)`
     ///
     /// #### Examples
@@ -107,7 +98,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -116,7 +107,7 @@ impl PyFMIndex {
     /// # True
     /// ```
     fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         py.detach(|| self.inner.contains(pattern))
     }
 
@@ -124,7 +115,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -133,7 +124,7 @@ impl PyFMIndex {
     /// # 2
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         py.detach(|| self.inner.count(pattern))
     }
 
@@ -144,7 +135,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |count|) log σ)`
+    /// - Time: `O(|pattern| + |count|)`
     /// - Space: `O(|pattern| + |count|)`
     ///
     /// #### Examples
@@ -153,7 +144,7 @@ impl PyFMIndex {
     /// # [4, 1]
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         let locate = py.detach(|| self.inner.locate(pattern))?;
         Ok(PyList::new(py, &locate)?.unbind())
     }
@@ -167,7 +158,7 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)` for initialization, `O(log σ)` per yielded position
+    /// - Time: `O(|pattern|)` for initialization, `O(1)` per yielded position
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -179,16 +170,16 @@ impl PyFMIndex {
     /// # 1
     /// ```
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         let inner = self.inner.clone();
-        py.detach(move || IterLocate::new(sync::Arc::new(inner), pattern))
+        py.detach(move || IterLocate::new(pattern, sync::Arc::new(inner)))
     }
 
     /// Check if the indexed string starts with the given prefix.
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|prefix| log σ)`
+    /// - Time: `O(|prefix|)`
     /// - Space: `O(|prefix|)`
     ///
     /// #### Examples
@@ -197,7 +188,7 @@ impl PyFMIndex {
     /// # True
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<bool> {
-        let prefix = unsafe { prefix.data()? };
+        let prefix = prefix.to_str()?;
         py.detach(|| self.inner.starts_with(prefix))
     }
 
@@ -205,12 +196,8 @@ impl PyFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|suffix| log σ)`
+    /// - Time: `O(|suffix|)`
     /// - Space: `O(|suffix|)`
-    ///
-    /// where:
-    /// - `|suffix|` = length of the suffix
-    /// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
     ///
     /// #### Examples
     /// ```python
@@ -218,7 +205,7 @@ impl PyFMIndex {
     /// # True
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<bool> {
-        let suffix = unsafe { suffix.data()? };
+        let suffix = suffix.to_str()?;
         py.detach(|| self.inner.ends_with(suffix))
     }
 }
@@ -243,7 +230,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=0, code_unit=ucs1, max_bit=0)"
+                "FMIndex(len=0, max_bit=0)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -306,7 +293,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=11, code_unit=ucs1, max_bit=7)"
+                "FMIndex(len=11, max_bit=7)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -398,7 +385,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=13, code_unit=ucs2, max_bit=14)"
+                "FMIndex(len=13, max_bit=14)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert!(
@@ -515,7 +502,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=15, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=15, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(
@@ -604,7 +591,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "FMIndex(len=35, code_unit=ucs4, max_bit=17)"
+                "FMIndex(len=35, max_bit=17)"
             );
             assert!(fm_index.__copy__(py).is_ok());
             assert_eq!(

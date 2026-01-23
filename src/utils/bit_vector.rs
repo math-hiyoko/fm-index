@@ -59,11 +59,6 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn len(&self) -> usize {
-        self.len
-    }
-
-    #[inline]
     pub(crate) fn access(&self, index: usize) -> PyResult<bool> {
         if index >= self.len {
             return Err(PyIndexError::new_err("index out of bounds"));

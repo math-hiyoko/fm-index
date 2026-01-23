@@ -3,12 +3,10 @@ use std::sync;
 use pyo3::{
     PyResult,
     prelude::*,
-    types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringData, PyStringMethods},
+    types::{IntoPyDict, PyDict, PyList, PySequence, PyString, PyStringMethods},
 };
 
-use crate::fm_index::multi_fm_index::{
-    iter_locate::IterLocate, multi_fm_index_enum::MultiFMIndexEnum, string_data::StringData,
-};
+use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::MultiFMIndex};
 
 /// A multi-document FM-index for fast substring search across multiple strings.  
 ///
@@ -19,12 +17,11 @@ use crate::fm_index::multi_fm_index::{
 ///
 /// ### Construction
 /// #### Time / Space Complexity
-/// - Time: `O(S log σ)`
-/// - Space: `O(S log σ)`
+/// - Time: `O(S)`
+/// - Space: `O(S)`
 ///
 /// where:
 /// - `S` = total length of all indexed strings
-/// - `σ` = size of the alphabet (2⁸ for UCS-1, 2¹⁶ for UCS-2, etc.)
 ///
 /// ```python
 /// from fm_index import MultiFMIndex
@@ -34,7 +31,7 @@ use crate::fm_index::multi_fm_index::{
 #[derive(Clone)]
 #[pyclass(name = "MultiFMIndex")]
 pub(crate) struct PyMultiFMIndex {
-    inner: MultiFMIndexEnum,
+    inner: MultiFMIndex,
 }
 
 #[pymethods]
@@ -51,15 +48,11 @@ impl PyMultiFMIndex {
                         "All elements in the sequence must be strings.",
                     )
                 })?;
-                match unsafe { item.data()? } {
-                    PyStringData::Ucs1(vec) => Ok(StringData::Ucs1(vec.to_vec())),
-                    PyStringData::Ucs2(vec) => Ok(StringData::Ucs2(vec.to_vec())),
-                    PyStringData::Ucs4(vec) => Ok(StringData::Ucs4(vec.to_vec())),
-                }
+                Ok(item.to_string())
             })
             .collect::<PyResult<Vec<_>>>()?;
         py.detach(move || {
-            let inner = MultiFMIndexEnum::new(data)?;
+            let inner = MultiFMIndex::new(data)?;
             Ok(PyMultiFMIndex { inner })
         })
     }
@@ -73,17 +66,16 @@ impl PyMultiFMIndex {
     }
 
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        let (num_docs, total_num_chars, code_unit, max_bit) =
-            py.detach(|| -> PyResult<(usize, usize, &str, usize)> {
+        let (num_docs, total_num_chars, max_bit) =
+            py.detach(|| -> PyResult<(usize, usize, usize)> {
                 let num_docs = self.inner.len()?;
                 let total_num_chars = self.inner.total_num_chars()?;
-                let code_unit = self.inner.code_unit();
                 let max_bit = self.inner.max_bit()?;
-                Ok((num_docs, total_num_chars, code_unit, max_bit))
+                Ok((num_docs, total_num_chars, max_bit))
             })?;
         let result = format!(
-            "MultiFMIndex(num_docs={}, total_num_chars={}, code_unit={}, max_bit={})",
-            num_docs, total_num_chars, code_unit, max_bit,
+            "MultiFMIndex(num_docs={}, total_num_chars={}, max_bit={})",
+            num_docs, total_num_chars, max_bit,
         );
         Ok(PyString::new(py, &result).into())
     }
@@ -104,7 +96,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(S log σ)`
+    /// - Time: `O(S)`
     /// - Space: `O(S)`
     ///
     /// #### Examples
@@ -121,7 +113,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -130,7 +122,7 @@ impl PyMultiFMIndex {
     /// # True
     /// ```
     fn contains(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         py.detach(|| self.inner.contains(pattern))
     }
 
@@ -138,7 +130,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)`
+    /// - Time: `O(|pattern|)`
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -147,7 +139,7 @@ impl PyMultiFMIndex {
     /// # 10
     /// ```
     fn count_all(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         py.detach(|| self.inner.count_all(pattern))
     }
 
@@ -156,7 +148,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |total_count|) log σ)`
+    /// - Time: `O(|pattern| + |total_count|)`
     /// - Space: `O(|pattern| + |output|)`
     ///
     /// #### Examples
@@ -165,7 +157,7 @@ impl PyMultiFMIndex {
     /// # {0: 4, 1: 3, 2: 3}
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         let count = py.detach(|| self.inner.count(pattern))?;
         Ok(count.into_py_dict(py)?.unbind())
     }
@@ -176,7 +168,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O((|pattern| + |total_count|) log σ)`
+    /// - Time: `O(|pattern| + |total_count|)`
     /// - Space: `O(|pattern| + |total_count|)`
     ///
     /// #### Examples
@@ -185,7 +177,7 @@ impl PyMultiFMIndex {
     /// # {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyDict>> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         let locate = py.detach(|| self.inner.locate(pattern))?;
         Ok(locate.into_py_dict(py)?.unbind())
     }
@@ -199,7 +191,7 @@ impl PyMultiFMIndex {
     ///
     /// ### Complexity
     ///
-    /// - Time: `O(|pattern| log σ)` to initialize, then `O(log σ)` per yielded occurrence.
+    /// - Time: `O(|pattern|)` to initialize, then `O(1)` per yielded occurrence.
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -212,16 +204,16 @@ impl PyMultiFMIndex {
     /// ...
     /// ```
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
-        let pattern = unsafe { pattern.data()? };
+        let pattern = pattern.to_str()?;
         let inner = self.inner.clone();
-        py.detach(move || IterLocate::new(sync::Arc::new(inner), pattern))
+        py.detach(move || IterLocate::new(pattern, sync::Arc::new(inner)))
     }
 
     /// List document indices whose content starts with the prefix.
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|prefix| log σ)`
+    /// - Time: `O(|prefix|)`
     /// - Space: `O(|prefix|)`
     ///
     /// #### Examples
@@ -230,7 +222,7 @@ impl PyMultiFMIndex {
     /// # [2, 0]
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let prefix = unsafe { prefix.data()? };
+        let prefix = prefix.to_str()?;
         let result = py.detach(|| self.inner.starts_with(prefix))?;
         Ok(PyList::new(py, result)?.unbind())
     }
@@ -239,7 +231,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|suffix| log σ)`
+    /// - Time: `O(|suffix|)`
     /// - Space: `O(|suffix|)`
     ///
     /// #### Examples
@@ -248,7 +240,7 @@ impl PyMultiFMIndex {
     /// # [2, 1, 0]
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let suffix = unsafe { suffix.data()? };
+        let suffix = suffix.to_str()?;
         let result = py.detach(|| self.inner.ends_with(suffix))?;
         Ok(PyList::new(py, result)?.unbind())
     }
@@ -285,7 +277,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=0, total_num_chars=0, code_unit=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)",
             );
             assert_eq!(
                 multi_fm_index
@@ -392,7 +384,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=0, code_unit=ucs1, max_bit=0)",
+                "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)",
             );
             assert_eq!(
                 multi_fm_index
@@ -504,7 +496,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=36, code_unit=ucs1, max_bit=7)",
+                "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)",
             );
             assert_eq!(
                 multi_fm_index
@@ -733,7 +725,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=27, code_unit=ucs2, max_bit=14)",
+                "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)",
             );
             assert_eq!(
                 multi_fm_index
@@ -962,7 +954,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=19, code_unit=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1191,7 +1183,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=35, code_unit=ucs4, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=35, max_bit=17)",
             );
             assert_eq!(
                 multi_fm_index

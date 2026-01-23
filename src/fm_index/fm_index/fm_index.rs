@@ -1,43 +1,33 @@
-use std::{hash, iter, ops};
+use std::{char, iter};
 
-use num_traits::PrimInt;
+use num_traits::Zero;
 use pyo3::PyResult;
 use rayon::prelude::*;
 
-use crate::{
-    fm_index::base_fm_index::BaseFMIndex,
-    utils::{bit_width::BitWidth, suffix_array::suffix_array_option},
-};
+use crate::{fm_index::base_fm_index::BaseFMIndex, utils::suffix_array::suffix_array};
 
 #[derive(Clone)]
-pub(crate) struct FMIndex<
-    Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync,
-> {
+pub(crate) struct FMIndex {
     len: usize,
-    base_fm_index: BaseFMIndex<Element>,
+    base_fm_index: BaseFMIndex,
 }
 
-impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidth + Send + Sync>
-    FMIndex<Element>
-{
-    pub(crate) fn new(data: Vec<Element>) -> PyResult<Self> {
-        let len = data.len();
+impl FMIndex {
+    pub(crate) fn new(data: &str) -> PyResult<Self> {
+        let len = data.chars().count();
         let data = data
-            .into_iter()
-            .map(|symbol| Some(symbol))
-            .chain(iter::once(None))
+            .chars()
+            .map(|c| c as u32 + 1)
+            .chain(iter::once(0))
             .collect::<Vec<_>>();
-        let suffix_idx = suffix_array_option(&data);
+        let suffix_idx = suffix_array(&data);
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
         Ok(FMIndex { len, base_fm_index })
     }
 
     #[inline]
-    pub(super) fn range_search(&self, pattern: Vec<Element>) -> PyResult<(usize, usize)> {
-        let pattern = pattern
-            .into_iter()
-            .map(|symbol| Some(symbol))
-            .collect::<Vec<_>>();
+    pub(super) fn range_search(&self, pattern: &str) -> PyResult<(usize, usize)> {
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
         Ok((start, end))
@@ -56,32 +46,35 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
         self.base_fm_index.burrows_wheeler_transform().max_bit()
     }
 
-    pub(crate) fn values(&self) -> PyResult<Vec<Element>> {
+    pub(crate) fn value(&self) -> PyResult<String> {
         let values = self
             .base_fm_index
             .values()?
             .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+            .filter_map(|c| {
+                if c.is_zero() {
+                    None
+                } else {
+                    char::from_u32(c - 1)
+                }
+            })
+            .collect::<String>();
 
         Ok(values)
     }
 
-    pub(crate) fn contains(&self, pattern: Vec<Element>) -> PyResult<bool> {
+    pub(crate) fn contains(&self, pattern: &str) -> PyResult<bool> {
         Ok(self.count(pattern)? > 0)
     }
 
-    pub(crate) fn count(&self, pattern: Vec<Element>) -> PyResult<usize> {
-        let pattern = pattern
-            .into_iter()
-            .map(|symbol| Some(symbol))
-            .collect::<Vec<_>>();
+    pub(crate) fn count(&self, pattern: &str) -> PyResult<usize> {
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
         Ok(end - start)
     }
 
-    pub(crate) fn locate(&self, pattern: Vec<Element>) -> PyResult<Vec<usize>> {
+    pub(crate) fn locate(&self, pattern: &str) -> PyResult<Vec<usize>> {
         let (start, end) = self.range_search(pattern)?;
         let result = (start..end)
             .into_par_iter()
@@ -91,22 +84,19 @@ impl<Element: PrimInt + hash::Hash + ops::BitOrAssign + ops::ShlAssign + BitWidt
         Ok(result)
     }
 
-    pub(crate) fn starts_with(&self, pattern: Vec<Element>) -> PyResult<bool> {
-        let pattern = pattern
-            .into_iter()
-            .map(|symbol| Some(symbol))
-            .collect::<Vec<_>>();
+    pub(crate) fn starts_with(&self, pattern: &str) -> PyResult<bool> {
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
         Ok(start <= self.base_fm_index.zero_suffix_idx()
             && self.base_fm_index.zero_suffix_idx() < end)
     }
 
-    pub(crate) fn ends_with(&self, pattern: Vec<Element>) -> PyResult<bool> {
+    pub(crate) fn ends_with(&self, pattern: &str) -> PyResult<bool> {
         let pattern = pattern
-            .into_iter()
-            .map(|symbol| Some(symbol))
-            .chain(iter::once(None))
+            .chars()
+            .map(|c| c as u32 + 1)
+            .chain(iter::once(0))
             .collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
@@ -122,116 +112,116 @@ mod tests {
 
     #[test]
     fn test_empty_index() {
-        let data = vec![];
+        let data = "";
         let index = FMIndex::new(data).unwrap();
 
         // Length and values
         assert!(index.len().unwrap().is_zero());
-        assert!(index.values().unwrap().is_empty());
+        assert!(index.value().unwrap().is_empty());
 
         // Contains and count
-        assert!(index.contains(vec![]).unwrap());
-        assert!(!index.contains(b"a".to_vec()).unwrap());
-        assert_eq!(index.count(vec![]).unwrap(), 1);
-        assert!(index.count(b"a".to_vec()).unwrap().is_zero());
+        assert!(index.contains("").unwrap());
+        assert!(!index.contains("a").unwrap());
+        assert_eq!(index.count("").unwrap(), 1);
+        assert!(index.count("a").unwrap().is_zero());
 
         // Locate
-        assert_eq!(index.locate(vec![]).unwrap(), [0]);
-        assert!(index.locate(b"a".to_vec()).unwrap().is_empty());
+        assert_eq!(index.locate("").unwrap(), [0]);
+        assert!(index.locate("a").unwrap().is_empty());
 
         // Starts with and ends with
-        assert!(index.starts_with(vec![]).unwrap());
-        assert!(!index.starts_with(b"a".to_vec()).unwrap());
-        assert!(index.ends_with(vec![]).unwrap());
-        assert!(!index.ends_with(b"a".to_vec()).unwrap());
+        assert!(index.starts_with("").unwrap());
+        assert!(!index.starts_with("a").unwrap());
+        assert!(index.ends_with("").unwrap());
+        assert!(!index.ends_with("a").unwrap());
     }
 
     #[test]
     fn test_single_repeated_character() {
-        let data = b"aaaaaaaaaa".to_vec();
-        let index = FMIndex::new(data.clone()).unwrap();
+        let data = "aaaaaaaaaa";
+        let index = FMIndex::new(data).unwrap();
 
         // Length and values
         assert_eq!(index.len().unwrap(), 10);
-        assert_eq!(index.values().unwrap(), data);
+        assert_eq!(index.value().unwrap(), data);
 
         // Contains and count
-        assert!(index.contains(vec![]).unwrap());
-        assert!(index.contains(b"a".to_vec()).unwrap());
-        assert_eq!(index.count(b"a".to_vec()).unwrap(), 10);
+        assert!(index.contains("").unwrap());
+        assert!(index.contains("a").unwrap());
+        assert_eq!(index.count("a").unwrap(), 10);
 
         // Locate
         assert_eq!(
-            index.locate(b"a".to_vec()).unwrap(),
-            [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+            {
+                let mut sorted = index.locate("a").unwrap();
+                sorted.sort();
+                sorted
+            },
+            (0..10).collect::<Vec<_>>()
         );
 
         // Starts with and ends with
-        assert!(index.starts_with(vec![]).unwrap());
-        assert!(index.starts_with(b"aa".to_vec()).unwrap());
-        assert!(!index.starts_with(b"bb".to_vec()).unwrap());
-        assert!(index.ends_with(vec![]).unwrap());
-        assert!(index.ends_with(b"aa".to_vec()).unwrap());
-        assert!(!index.ends_with(b"bb".to_vec()).unwrap());
+        assert!(index.starts_with("").unwrap());
+        assert!(index.starts_with("aa").unwrap());
+        assert!(!index.starts_with("bb").unwrap());
+        assert!(index.ends_with("").unwrap());
+        assert!(index.ends_with("aa").unwrap());
+        assert!(!index.ends_with("bb").unwrap());
     }
 
     #[test]
     fn test_byte_string_operations() {
-        let data = b"mississippi".to_vec();
-        let index = FMIndex::new(data.clone()).unwrap();
+        let data = "mississippi";
+        let index = FMIndex::new(data).unwrap();
 
         // Length and values
         assert_eq!(index.len().unwrap(), 11);
-        assert_eq!(index.values().unwrap(), data);
+        assert_eq!(index.value().unwrap(), data);
 
         // Contains and count
-        assert!(index.contains(vec![]).unwrap());
-        assert!(index.contains(b"is".to_vec()).unwrap());
-        assert_eq!(index.count(b"is".to_vec()).unwrap(), 2);
+        assert!(index.contains("").unwrap());
+        assert!(index.contains("is").unwrap());
+        assert_eq!(index.count("is").unwrap(), 2);
 
         // Locate
-        assert_eq!(index.locate(b"is".to_vec()).unwrap(), [4, 1]);
+        assert_eq!(index.locate("is").unwrap(), [4, 1]);
 
         // Starts with
-        assert!(index.starts_with(vec![]).unwrap());
-        assert!(index.starts_with(b"mi".to_vec()).unwrap());
-        assert!(!index.starts_with(b"si".to_vec()).unwrap());
+        assert!(index.starts_with("").unwrap());
+        assert!(index.starts_with("mi").unwrap());
+        assert!(!index.starts_with("si").unwrap());
 
         // Ends with
-        assert!(index.ends_with(vec![]).unwrap());
-        assert!(index.ends_with(b"pi".to_vec()).unwrap());
-        assert!(!index.ends_with(b"ip".to_vec()).unwrap());
+        assert!(index.ends_with("").unwrap());
+        assert!(index.ends_with("pi").unwrap());
+        assert!(!index.ends_with("ip").unwrap());
     }
 
     #[test]
     fn test_unicode_string_operations() {
         let text = "にわにはにわにわとりがいる";
-        let data = text.chars().map(|c| c as u32).collect::<Vec<_>>();
-        let index = FMIndex::new(data.clone()).unwrap();
-
-        let pattern_niwa = vec!['に' as u32, 'わ' as u32];
-        let pattern_iru = vec!['い' as u32, 'る' as u32];
+        let index = FMIndex::new(text).unwrap();
 
         // Length and values
         assert_eq!(index.len().unwrap(), 13);
-        assert_eq!(index.values().unwrap(), data);
+        assert_eq!(index.value().unwrap(), text);
 
         // Contains and count
-        assert!(index.contains(vec![]).unwrap());
-        assert!(index.contains(pattern_niwa.clone()).unwrap());
-        assert_eq!(index.count(pattern_niwa.clone()).unwrap(), 3);
+        assert!(index.contains("").unwrap());
+        assert!(index.contains("にわ").unwrap());
+        assert_eq!(index.count("にわ").unwrap(), 3);
 
         // Locate
-        assert_eq!(index.locate(pattern_niwa.clone()).unwrap(), [6, 0, 4]);
+        assert_eq!(index.locate("にわ").unwrap(), [6, 0, 4]);
 
         // Starts with
-        assert!(index.starts_with(vec![]).unwrap());
-        assert!(index.starts_with(pattern_niwa.clone()).unwrap());
-        assert!(!index.starts_with(pattern_iru.clone()).unwrap());
+        assert!(index.starts_with("").unwrap());
+        assert!(index.starts_with("にわ").unwrap());
+        assert!(!index.starts_with("いる").unwrap());
 
         // Ends with
-        assert!(index.ends_with(vec![]).unwrap());
-        assert!(index.ends_with(pattern_iru).unwrap());
-        assert!(!index.ends_with(pattern_niwa).unwrap());
+        assert!(index.ends_with("").unwrap());
+        assert!(index.ends_with("いる").unwrap());
+        assert!(!index.ends_with("にわ").unwrap());
     }
 }

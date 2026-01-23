@@ -10,6 +10,7 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/fm-index?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GREEN&left_text=PyPI%20downloads)](https://pepy.tech/projects/fm-index)
 ![PyPI - Format](https://img.shields.io/pypi/format/fm-index)
 ![Rust](https://img.shields.io/badge/powered%20by-Rust-orange)
+![Unsafe](https://img.shields.io/badge/unsafe-0-success)
 
 
 High-performance FM-index implementation powered by Rust,  
@@ -23,6 +24,7 @@ designed for fast substring search on large texts and collections
 - Fast count / locate substring queries
 - Data-parallel optimizations across index construction and queries
 - Supports single text and multiple documents
+- Safe Rust (no unsafe)
 
 ## Installation
 ```bash
@@ -35,8 +37,7 @@ FMIndex builds a compressed index over a single string,
 allowing fast substring search without scanning the original data.  
 
 ### Construction Complexity
-- Time / Space: `O(|data| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2). 
+- Time / Space: `O(|data|)`  
 
 #### Example
 
@@ -90,8 +91,7 @@ Query processing is internally parallelized where possible,
 making multi-document search efficient in practice.  
 
 ### Construction Complexity
-- Time / Space: `O(|''.join(data)| log σ)`  
-- σ = alphabet size (e.g. 2⁸ for UCS-1, 2¹⁶ for UCS-2).   
+- Time / Space: `O(|''.join(data)|)`   
 
 ```python
 from fm_index import MultiFMIndex
@@ -140,6 +140,10 @@ for doc_id, pos in mfm.iter_locate(pattern="検索"):
 mfm.startswith(prefix="政府は")
 mfm.endswith(suffix="注目している。")
 ```
+
+## Safety
+- Powered by safe Rust
+- Memory-safe by design
 
 ## Development & Testing
 

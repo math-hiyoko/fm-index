@@ -1,7 +1,8 @@
 // Adapted from: https://github.com/rust-lang-ja/ac-library-rs/blob/0cdbc5e2ad110b688b0239e0208e275dde94a1e2/src/string.rs
-use std::{cmp, fmt, hash, iter, mem, ops};
+use std::{cmp, fmt, iter, mem, ops};
 
 use num_traits::PrimInt;
+use rayon::prelude::*;
 
 fn suffix_array_naive<IndexType>(data: Vec<IndexType>) -> Vec<IndexType>
 where
@@ -248,7 +249,7 @@ where
         }
 
         drop(lms_index);
-        let reduced_suffix_array = suffix_array(reduced_data, reduced_alphabet_max);
+        let reduced_suffix_array = suffix_array_inner(reduced_data, reduced_alphabet_max);
         for (i, reduced_sa_value) in reduced_suffix_array.into_iter().enumerate() {
             sorted_lms_positions[i] = lms_positions[usize::try_from(reduced_sa_value).unwrap()];
         }
@@ -259,7 +260,7 @@ where
     suffix_idx
 }
 
-fn suffix_array<IndexType>(data: Vec<IndexType>, alphabet_max: IndexType) -> Vec<IndexType>
+fn suffix_array_inner<IndexType>(data: Vec<IndexType>, alphabet_max: IndexType) -> Vec<IndexType>
 where
     usize: TryFrom<IndexType>,
     IndexType: PrimInt + ops::AddAssign + ops::SubAssign + TryFrom<usize>,
@@ -281,12 +282,10 @@ where
     }
 }
 
-pub(crate) fn suffix_array_option<Element: PrimInt + hash::Hash>(
-    data: &[Option<Element>],
-) -> Vec<usize> {
-    fn to_usize_compress<Element: PrimInt + hash::Hash>(data: &[Option<Element>]) -> Vec<usize> {
+pub(crate) fn suffix_array(data: &[u32]) -> Vec<usize> {
+    fn to_usize_compress(data: &[u32]) -> Vec<usize> {
         let mut unique_values = data.to_vec();
-        unique_values.sort();
+        unique_values.par_sort();
         unique_values.dedup();
 
         let value_index = unique_values
@@ -298,22 +297,13 @@ pub(crate) fn suffix_array_option<Element: PrimInt + hash::Hash>(
         data.iter().map(|opt| value_index[opt]).collect::<Vec<_>>()
     }
 
-    fn to_usize_no_compress<Element: PrimInt>(data: &[Option<Element>]) -> Vec<usize> {
-        data.iter()
-            .map(|&opt| match opt {
-                Some(value) => value.to_usize().unwrap() + 1,
-                None => 0usize,
-            })
-            .collect::<Vec<_>>()
-    }
-
     if data.len() <= u8::MAX as usize {
         let data_usize = to_usize_compress(data)
             .into_iter()
             .map(|x| x as u8)
             .collect::<Vec<_>>();
         let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u8;
-        suffix_array::<u8>(data_usize, alphabet_max)
+        suffix_array_inner(data_usize, alphabet_max)
             .into_iter()
             .map(|x| x as usize)
             .collect()
@@ -323,27 +313,21 @@ pub(crate) fn suffix_array_option<Element: PrimInt + hash::Hash>(
             .map(|x| x as u16)
             .collect::<Vec<_>>();
         let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u16;
-        suffix_array(data_usize, alphabet_max)
+        suffix_array_inner(data_usize, alphabet_max)
             .into_iter()
             .map(|x| x as usize)
             .collect()
     } else if data.len() <= u32::MAX as usize {
-        let data_usize = to_usize_no_compress(data)
-            .into_iter()
-            .map(|x| x as u32)
-            .collect::<Vec<_>>();
+        let data_usize = data.to_vec();
         let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u32;
-        suffix_array(data_usize, alphabet_max)
+        suffix_array_inner(data_usize, alphabet_max)
             .into_iter()
             .map(|x| x as usize)
             .collect()
     } else {
-        let data_usize = to_usize_no_compress(data)
-            .into_iter()
-            .map(|x| x as u64)
-            .collect::<Vec<_>>();
+        let data_usize = data.iter().map(|&x| x as u64).collect::<Vec<_>>();
         let &alphabet_max = data_usize.iter().max().unwrap_or(&0) as &u64;
-        suffix_array(data_usize, alphabet_max)
+        suffix_array_inner(data_usize, alphabet_max)
             .into_iter()
             .map(|x| x as usize)
             .collect()
@@ -364,10 +348,11 @@ mod tests {
         let suffix_idx_induced_sorting =
             suffix_array_induced_sorting(array.to_vec(), array.iter().copied().max().unwrap_or(0));
         assert_eq!(suffix_idx_induced_sorting, expected_idx);
-        let suffix_idx = suffix_array(array.to_vec(), array.iter().copied().max().unwrap_or(0));
+        let suffix_idx =
+            suffix_array_inner(array.to_vec(), array.iter().copied().max().unwrap_or(0));
         assert_eq!(suffix_idx, expected_idx);
         let suffix_idx_optional =
-            suffix_array_option(&array.iter().map(|&x| Some(x as u8)).collect::<Vec<_>>());
+            suffix_array(&array.iter().map(|&x| x as u32).collect::<Vec<_>>());
         assert_eq!(suffix_idx_optional, expected_idx);
     }
 
@@ -443,11 +428,11 @@ mod tests {
     fn test_suffix_array_4() {
         let str_list = ["banana", "ananas", "abracadabra", "mississippi"];
         let array = str_list
-            .iter()
-            .flat_map(|&str| str.bytes().map(Some).chain(iter::once(None)))
+            .into_iter()
+            .flat_map(|str| str.chars().map(|c| c as u32).chain(iter::once(0)))
             .collect::<Vec<_>>();
         assert_eq!(
-            suffix_array_option(&array),
+            suffix_array(&array),
             &[
                 37, 13, 6, 25, 5, 24, 21, 14, 17, 19, 3, 1, 7, 9, 11, 0, 22, 15, 18, 20, 36, 33,
                 30, 27, 26, 4, 2, 8, 10, 35, 34, 23, 16, 12, 32, 29, 31, 28,
