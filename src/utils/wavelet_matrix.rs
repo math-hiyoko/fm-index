@@ -130,7 +130,7 @@ impl WaveletMatrix {
             let bits = layer
                 .values()?
                 .into_par_iter()
-                .flat_map_iter(|block| (0..BlockType::BITS).map(move |i| (block >> i) & 1u64 == 1))
+                .flat_map_iter(|block| (0..BlockType::BITS).map(move |i| ((block >> i) & BlockType::one()).is_one()))
                 .collect::<Vec<_>>()
                 .into_iter()
                 .take(self.len)
