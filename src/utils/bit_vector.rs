@@ -130,6 +130,8 @@ impl BitVector {
         } else {
             block_index * (BlockType::BITS as usize) - self.ranks[block_index]
         };
+        println!("kth: {}", kth);
+        println!("select: {:?}", self.blocks[block_index].bit_select(bit, kth));
         let index = self.blocks[block_index].bit_select(bit, kth).unwrap()
             + block_index * (BlockType::BITS as usize);
 
