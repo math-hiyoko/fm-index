@@ -107,7 +107,7 @@ impl BitVector {
         let block_index = {
             let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL]
                 / (BlockType::BITS as usize);
-            let mut right = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL + 1]
+            let mut right = self.select_index[bit as usize][kth.div_ceil(SELECT_INDEX_INTERBVAL)]
                 .div_ceil(BlockType::BITS as usize);
             debug_assert!(right <= self.blocks.len());
             while left + 1 < right {
@@ -123,7 +123,6 @@ impl BitVector {
                     right = mid;
                 }
             }
-            assert!(left + 1 == right);
             left
         };
 
