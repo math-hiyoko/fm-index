@@ -96,6 +96,7 @@ impl BitVector {
 
     #[inline]
     pub(crate) fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
+        use std::io::{self, Write};
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
@@ -130,8 +131,10 @@ impl BitVector {
         } else {
             block_index * (BlockType::BITS as usize) - self.ranks[block_index]
         };
+        println!("bit: {}", bit);
         println!("kth: {}", kth);
         println!("select: {:?}", self.blocks[block_index].bit_select(bit, kth));
+        io::stdout().flush().unwrap();
         let index = self.blocks[block_index].bit_select(bit, kth).unwrap()
             + block_index * (BlockType::BITS as usize);
 
