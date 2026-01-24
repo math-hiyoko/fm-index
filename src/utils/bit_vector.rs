@@ -136,6 +136,8 @@ impl BitVector {
         eprintln!("select: {:?}", self.blocks[block_index].bit_select(bit, kth));
         assert!(kth > 0);
         assert!(kth <= self.rank(bit, self.len)?);
+        let output = self.blocks[block_index].bit_select(bit, kth);
+        assert!(output.is_some(), "bit: {}, kth: {}", bit, kth);
         io::stderr().flush().unwrap();
         let index = self.blocks[block_index].bit_select(bit, kth).unwrap()
             + block_index * (BlockType::BITS as usize);
