@@ -123,6 +123,7 @@ impl BitVector {
                     right = mid;
                 }
             }
+            assert!(left + 1 == right);
             left
         };
 
