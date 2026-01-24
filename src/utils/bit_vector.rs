@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::utils::bit_select::BitSelect;
 
 pub(crate) type BlockType = u64;
-const SELECT_INDEX_INTERBVAL: usize = 64;
+const SELECT_INDEX_INTERBVAL: usize = 512;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct BitVector {
@@ -107,8 +107,7 @@ impl BitVector {
             let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL]
                 / (BlockType::BITS as usize);
             let mut right = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL + 1]
-                / (BlockType::BITS as usize)
-                + 1;
+                .div_ceil(BlockType::BITS as usize);
             debug_assert!(right <= self.blocks.len());
             while left + 1 < right {
                 let mid = (left + right) / 2;
