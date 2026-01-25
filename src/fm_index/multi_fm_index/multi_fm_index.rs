@@ -49,25 +49,26 @@ impl MultiFMIndex {
             })
             .collect::<Vec<_>>();
 
-        let doc_start_indices = doc_len
-            .iter()
-            .scan(0usize, |acc, &len| {
-                let start = *acc;
-                *acc += len + 1; // +1 for the delimiter
-                Some(start)
-            })
-            .collect::<Vec<_>>();
+        let pos = {
+            let doc_start_indices = doc_len
+                .iter()
+                .scan(0usize, |acc, &len| {
+                    let start = *acc;
+                    *acc += len + 1; // +1 for the delimiter
+                    Some(start)
+                })
+                .collect::<Vec<_>>();
 
-        let pos = suffix_idx
-            .par_iter()
-            .step_by(ARRAY_SAMPLING_RATE)
-            .map(|&suffix_idx| {
-                let doc_id = doc_id_of_index[suffix_idx];
-                let offset = suffix_idx - doc_start_indices[doc_id];
-                Ok((doc_id, offset))
-            })
-            .collect::<PyResult<Vec<_>>>()?;
-        drop(doc_start_indices);
+            suffix_idx
+                .par_iter()
+                .step_by(ARRAY_SAMPLING_RATE)
+                .map(|&suffix_idx| {
+                    let doc_id = doc_id_of_index[suffix_idx];
+                    let offset = suffix_idx - doc_start_indices[doc_id];
+                    Ok((doc_id, offset))
+                })
+                .collect::<PyResult<Vec<_>>>()?
+        };
 
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
 
@@ -82,6 +83,7 @@ impl MultiFMIndex {
                 Ok((k, doc_id))
             })
             .collect::<PyResult<collections::HashMap<_, _>>>()?;
+
         drop(doc_id_of_index);
 
         Ok(MultiFMIndex {
