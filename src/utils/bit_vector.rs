@@ -11,17 +11,16 @@ use serde::{Deserialize, Serialize};
 use crate::utils::bit_select::BitSelect;
 
 pub(crate) type BlockType = u64;
-const SELECT_INDEX_INTERBVAL: usize = 512;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct BitVector {
+pub(crate) struct BitVector<const SELECT_INDEX_INTERBVAL: usize> {
     len: usize,
     blocks: Vec<BlockType>,
     ranks: Vec<usize>,
     select_index: [Vec<usize>; 2],
 }
 
-impl BitVector {
+impl<const SELECT_INDEX_INTERBVAL: usize> BitVector<SELECT_INDEX_INTERBVAL> {
     pub(crate) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
         // Build the rank index structure.
         let ranks: Vec<usize> = iter::once(0usize)
@@ -143,7 +142,7 @@ mod tests {
 
     use super::*;
 
-    fn create_test_bit_vector() -> BitVector {
+    fn create_test_bit_vector() -> BitVector<1024> {
         let bits = [true, false, true, true, false, true, false, false].repeat(999);
         let blocks = bits
             .chunks(BlockType::BITS as usize)
@@ -163,7 +162,7 @@ mod tests {
     fn test_empty_bit_vector() {
         Python::initialize();
 
-        let bv = BitVector::new(vec![], 0).unwrap();
+        let bv = BitVector::<1024>::new(vec![], 0).unwrap();
 
         // Access should fail on empty vector
         assert_eq!(
@@ -199,7 +198,7 @@ mod tests {
                     })
             })
             .collect::<Vec<_>>();
-        let bv = BitVector::new(blocks.clone(), bits.len()).unwrap();
+        let bv = BitVector::<1024>::new(blocks.clone(), bits.len()).unwrap();
 
         assert_eq!(bv.values().unwrap(), blocks);
         for i in 0..1024 {

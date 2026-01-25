@@ -11,6 +11,8 @@ use crate::utils::{
     suffix_array::suffix_array,
 };
 
+const SELECT_INDEX_INTERBVAL: usize = 32;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct MultiFMIndex {
     doc_len: Vec<usize>,
@@ -41,7 +43,7 @@ impl MultiFMIndex {
 
         let suffix_idx = suffix_array(&data);
 
-        let data_zero_bitvector = BitVector::new(
+        let data_zero_bitvector = BitVector::<SELECT_INDEX_INTERBVAL>::new(
             data.par_iter()
                 .map(|value| value.is_zero())
                 .chunks(BlockType::BITS as usize)
@@ -85,6 +87,8 @@ impl MultiFMIndex {
                 Ok((k, doc_id))
             })
             .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
+
+        drop(data_zero_bitvector);
 
         Ok(MultiFMIndex {
             doc_len,

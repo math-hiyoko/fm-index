@@ -13,11 +13,13 @@ use super::{
     bit_width::bit_width,
 };
 
+const SELECT_INDEX_INTERBVAL: usize = 1024;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WaveletMatrix {
     len: usize,
     height: usize,
-    layers: Vec<BitVector>,
+    layers: Vec<BitVector<SELECT_INDEX_INTERBVAL>>,
     zeros_count_per_layer: Vec<usize>,
     begin_index: collections::HashMap<u32, usize>,
 }
