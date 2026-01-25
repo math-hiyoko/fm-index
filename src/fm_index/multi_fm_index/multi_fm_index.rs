@@ -6,12 +6,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fm_index::base_fm_index::{ARRAY_SAMPLING_RATE, BaseFMIndex};
-use crate::utils::{
-    bit_vector::{BitVector, BlockType},
-    suffix_array::suffix_array,
-};
-
-const SELECT_INDEX_INTERBVAL: usize = 32;
+use crate::utils::suffix_array::suffix_array;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct MultiFMIndex {
@@ -43,36 +38,36 @@ impl MultiFMIndex {
 
         let suffix_idx = suffix_array(&data);
 
-        let data_zero_bitvector = BitVector::<SELECT_INDEX_INTERBVAL>::new(
-            data.par_iter()
-                .map(|value| value.is_zero())
-                .chunks(BlockType::BITS as usize)
-                .map(|chunk| {
-                    chunk
-                        .into_iter()
-                        .enumerate()
-                        .fold(BlockType::zero(), |acc, (i, bit)| {
-                            acc | ((bit as BlockType) << i)
-                        })
-                })
-                .collect::<Vec<_>>(),
-            data.len(),
-        )?;
+        let doc_id_of_index = data
+            .iter()
+            .scan(0usize, |doc_id, &value| {
+                let ret = *doc_id;
+                if value.is_zero() {
+                    *doc_id += 1;
+                }
+                Some(ret)
+            })
+            .collect::<Vec<_>>();
+
+        let doc_start_indices = doc_len
+            .iter()
+            .scan(0usize, |acc, &len| {
+                let start = *acc;
+                *acc += len + 1; // +1 for the delimiter
+                Some(start)
+            })
+            .collect::<Vec<_>>();
 
         let pos = suffix_idx
             .par_iter()
             .step_by(ARRAY_SAMPLING_RATE)
             .map(|&suffix_idx| {
-                let doc_id = data_zero_bitvector.rank(true, suffix_idx)?;
-                let doc_start_idx = if doc_id == 0 {
-                    0
-                } else {
-                    data_zero_bitvector.select(true, doc_id)?.unwrap() + 1
-                };
-                let offset = suffix_idx - doc_start_idx;
+                let doc_id = doc_id_of_index[suffix_idx];
+                let offset = suffix_idx - doc_start_indices[doc_id];
                 Ok((doc_id, offset))
             })
-            .collect::<PyResult<Vec<(usize, usize)>>>()?;
+            .collect::<PyResult<Vec<_>>>()?;
+        drop(doc_start_indices);
 
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
 
@@ -83,12 +78,11 @@ impl MultiFMIndex {
                     .burrows_wheeler_transform()
                     .select(0u32, idx)?
                     .unwrap();
-                let doc_id = data_zero_bitvector.rank(true, base_fm_index.suffix_idx(k)?)?;
+                let doc_id = doc_id_of_index[base_fm_index.suffix_idx(k)?];
                 Ok((k, doc_id))
             })
-            .collect::<PyResult<collections::HashMap<usize, usize>>>()?;
-
-        drop(data_zero_bitvector);
+            .collect::<PyResult<collections::HashMap<_, _>>>()?;
+        drop(doc_id_of_index);
 
         Ok(MultiFMIndex {
             doc_len,
@@ -146,7 +140,7 @@ impl MultiFMIndex {
                 slice
                     .iter()
                     .map(|&c| char::from_u32(c - 1).unwrap())
-                    .collect::<String>()
+                    .collect()
             })
             .collect::<Vec<_>>();
         values.truncate(self.len()?); // Remove the last empty slice after the final 0
@@ -183,11 +177,11 @@ impl MultiFMIndex {
                 let (doc_id, _) = self.doc_offset(k)?;
                 Ok(doc_id)
             })
-            .collect::<PyResult<Vec<usize>>>()?
+            .collect::<PyResult<Vec<_>>>()?
             .into_iter()
             .fold(
-                collections::HashMap::new(),
-                |mut acc: collections::HashMap<usize, usize>, doc_id| {
+                collections::HashMap::<usize, usize>::new(),
+                |mut acc, doc_id| {
                     *acc.entry(doc_id).or_insert(0) += 1;
                     acc
                 },
@@ -212,8 +206,8 @@ impl MultiFMIndex {
             .collect::<PyResult<Vec<(usize, usize)>>>()?
             .into_iter()
             .fold(
-                collections::HashMap::new(),
-                |mut acc: collections::HashMap<usize, Vec<usize>>, (doc_id, offset)| {
+                collections::HashMap::<usize, Vec<usize>>::new(),
+                |mut acc, (doc_id, offset)| {
                     acc.entry(doc_id).or_default().push(offset);
                     acc
                 },
@@ -238,7 +232,7 @@ impl MultiFMIndex {
                     let doc_id = self.doc[&k];
                     Ok(doc_id)
                 })
-                .collect::<PyResult<Vec<usize>>>()?;
+                .collect::<PyResult<Vec<_>>>()?;
         }
 
         Ok(result)
@@ -258,7 +252,7 @@ impl MultiFMIndex {
                 let (doc_id, _) = self.doc_offset(k)?;
                 Ok(doc_id)
             })
-            .collect::<PyResult<Vec<usize>>>()?;
+            .collect::<PyResult<Vec<_>>>()?;
 
         Ok(result)
     }

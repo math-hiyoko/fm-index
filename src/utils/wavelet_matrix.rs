@@ -13,13 +13,11 @@ use super::{
     bit_width::bit_width,
 };
 
-const SELECT_INDEX_INTERBVAL: usize = 1024;
-
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WaveletMatrix {
     len: usize,
     height: usize,
-    layers: Vec<BitVector<SELECT_INDEX_INTERBVAL>>,
+    layers: Vec<BitVector>,
     zeros_count_per_layer: Vec<usize>,
     begin_index: collections::HashMap<u32, usize>,
 }
@@ -36,7 +34,7 @@ impl WaveletMatrix {
             let current_layer_bits = current_values
                 .par_iter()
                 .map(|value| (value >> (height - depth - 1) & 1u32).is_one())
-                .collect::<Vec<bool>>();
+                .collect::<Vec<_>>();
             let zeros_count = current_layer_bits.par_iter().filter(|&&b| !b).count();
 
             let mut reordered_values = vec![0u32; len];
