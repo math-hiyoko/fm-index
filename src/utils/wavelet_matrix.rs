@@ -34,7 +34,7 @@ impl WaveletMatrix {
             let current_layer_bits = current_values
                 .par_iter()
                 .map(|value| (value >> (height - depth - 1) & 1u32).is_one())
-                .collect::<Vec<bool>>();
+                .collect::<Vec<_>>();
             let zeros_count = current_layer_bits.par_iter().filter(|&&b| !b).count();
 
             let mut reordered_values = vec![0u32; len];

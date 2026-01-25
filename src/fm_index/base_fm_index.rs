@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::wavelet_matrix::WaveletMatrix;
 
-pub(super) const ARRAY_SAMPLING_RATE: usize = 32;
+pub(super) const ARRAY_SAMPLING_RATE: usize = 16;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct BaseFMIndex {

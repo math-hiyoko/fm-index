@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::bit_select::BitSelect;
 
-pub(crate) type BlockType = u64;
-const SELECT_INDEX_INTERBVAL: usize = 64;
+pub(super) type BlockType = u64;
+const SELECT_INDEX_INTERBVAL: usize = 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct BitVector {
+pub(super) struct BitVector {
     len: usize,
     blocks: Vec<BlockType>,
     ranks: Vec<usize>,
@@ -22,7 +22,7 @@ pub(crate) struct BitVector {
 }
 
 impl BitVector {
-    pub(crate) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
+    pub(super) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
         // Build the rank index structure.
         let ranks: Vec<usize> = iter::once(0usize)
             .chain(blocks.iter().scan(0usize, |acc, block| {
@@ -60,7 +60,7 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn access(&self, index: usize) -> PyResult<bool> {
+    pub(super) fn access(&self, index: usize) -> PyResult<bool> {
         if index >= self.len {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
@@ -69,12 +69,12 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn values(&self) -> PyResult<Vec<BlockType>> {
+    pub(super) fn values(&self) -> PyResult<Vec<BlockType>> {
         Ok(self.blocks.clone())
     }
 
     #[inline]
-    pub(crate) fn rank(&self, bit: bool, end: usize) -> PyResult<usize> {
+    pub(super) fn rank(&self, bit: bool, end: usize) -> PyResult<usize> {
         if end > self.len {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
@@ -95,7 +95,7 @@ impl BitVector {
     }
 
     #[inline]
-    pub(crate) fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
+    pub(super) fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
@@ -106,9 +106,8 @@ impl BitVector {
         let block_index = {
             let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL]
                 / (BlockType::BITS as usize);
-            let mut right = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL + 1]
-                / (BlockType::BITS as usize)
-                + 1;
+            let mut right = self.select_index[bit as usize][kth / SELECT_INDEX_INTERBVAL + 1]
+                .div_ceil(BlockType::BITS as usize);
             debug_assert!(right <= self.blocks.len());
             while left + 1 < right {
                 let mid = (left + right) / 2;
