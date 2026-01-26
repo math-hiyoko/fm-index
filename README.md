@@ -119,20 +119,34 @@ mfm.count_all(pattern="検索")
 ```python
 mfm.count(pattern="検索")
 # {3: 1, 4: 1, 5: 1}
+
+# Count within a specific document
+mfm.count(pattern="検索", doc_id=3)
+# 1
 ```
 
 ### Locate Per Document
 ```python
 mfm.locate(pattern="検索")
 # {5: [13], 4: [7], 3: [6]}
+
+# Locate within a specific document
+mfm.locate(pattern="検索", doc_id=3)
+# [6]
 ```
 
 ### Iterative Locate (Streaming)
 ```python
+# Iterate across all documents
 for doc_id, pos in mfm.iter_locate(pattern="検索"):
     print(doc_id, pos)
 # 4 7
 # 5 13
+# 3 6
+
+# Iterate within a specific document
+for doc_id, pos in mfm.iter_locate(pattern="検索", doc_id=3):
+    print(doc_id, pos)
 # 3 6
 ```
 

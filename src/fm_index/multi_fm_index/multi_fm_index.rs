@@ -2,6 +2,7 @@ use std::{collections, iter};
 
 use num_traits::Zero;
 use pyo3::PyResult;
+use pyo3::exceptions::PyValueError;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -94,7 +95,12 @@ impl MultiFMIndex {
         Ok((doc_id, offset))
     }
 
-    pub(crate) fn len(&self) -> PyResult<usize> {
+    #[inline]
+    pub(super) fn doc_id_of_index(&self) -> &WaveletMatrix {
+        &self.doc_id_of_index
+    }
+
+    pub(crate) fn num_docs(&self) -> PyResult<usize> {
         Ok(self.doc_len.len())
     }
 
@@ -118,7 +124,7 @@ impl MultiFMIndex {
                     .collect()
             })
             .collect::<Vec<_>>();
-        values.truncate(self.len()?); // Remove the last empty slice after the final 0
+        values.truncate(self.num_docs()?); // Remove the last empty slice after the final 0
 
         Ok(values)
     }
@@ -156,6 +162,19 @@ impl MultiFMIndex {
         Ok(result)
     }
 
+    pub(crate) fn count_within_doc(&self, doc_id: usize, pattern: &str) -> PyResult<usize> {
+        if doc_id >= self.num_docs()? {
+            return Err(PyValueError::new_err("doc_id is out of bounds"));
+        }
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(pattern)?;
+
+        let count_within_doc = self.doc_id_of_index.rank(doc_id as u32, end)?
+            - self.doc_id_of_index.rank(doc_id as u32, start)?;
+
+        Ok(count_within_doc)
+    }
+
     pub(crate) fn locate(
         &self,
         pattern: &str,
@@ -178,6 +197,31 @@ impl MultiFMIndex {
                     acc
                 },
             );
+
+        Ok(result)
+    }
+
+    pub(crate) fn locate_within_doc(&self, doc_id: usize, pattern: &str) -> PyResult<Vec<usize>> {
+        if doc_id >= self.num_docs()? {
+            return Err(PyValueError::new_err("doc_id is out of bounds"));
+        }
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(pattern)?;
+
+        let start_index = self.doc_start_index[doc_id];
+        let start_rank = self.doc_id_of_index.rank(doc_id as u32, start)?;
+        let end_rank = self.doc_id_of_index.rank(doc_id as u32, end)?;
+        let result = (start_rank..end_rank)
+            .into_par_iter()
+            .map(|rank| {
+                let k = self
+                    .doc_id_of_index
+                    .select(doc_id as u32, rank + 1)?
+                    .unwrap();
+                let offset = self.base_fm_index.suffix_idx(k)? - start_index;
+                Ok(offset)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
 
         Ok(result)
     }
@@ -236,7 +280,7 @@ mod tests {
         let index = MultiFMIndex::new(data).unwrap();
 
         // Length and values
-        assert!(index.len().unwrap().is_zero());
+        assert!(index.num_docs().unwrap().is_zero());
         assert!(index.values().unwrap().is_empty());
 
         // Contains and count
@@ -266,7 +310,7 @@ mod tests {
         let expected_values: Vec<String> = vec!["".to_string(), "".to_string(), "".to_string()];
 
         // Length and values
-        assert_eq!(index.len().unwrap(), 3);
+        assert_eq!(index.num_docs().unwrap(), 3);
         assert_eq!(index.values().unwrap(), expected_values);
 
         // Contains and count
@@ -279,6 +323,8 @@ mod tests {
             collections::HashMap::from([(0, 1), (1, 1), (2, 1)])
         );
         assert!(index.count("a").unwrap().is_empty());
+        assert_eq!(index.count_within_doc(1, "").unwrap(), 1,);
+        assert_eq!(index.count_within_doc(1, "a").unwrap(), 0,);
 
         // Locate
         assert_eq!(
@@ -286,6 +332,8 @@ mod tests {
             collections::HashMap::from([(0, vec![0]), (1, vec![0]), (2, vec![0])])
         );
         assert!(index.locate("a").unwrap().is_empty());
+        assert_eq!(index.locate_within_doc(1, "").unwrap(), vec![0],);
+        assert!(index.locate_within_doc(1, "a").unwrap().is_empty());
 
         // Starts with and ends with
         assert_eq!(index.starts_with("").unwrap(), [2, 1, 0]);
@@ -312,7 +360,7 @@ mod tests {
         ];
 
         // Length and values
-        assert_eq!(index.len().unwrap(), 4);
+        assert_eq!(index.num_docs().unwrap(), 4);
         assert_eq!(index.values().unwrap(), expected_values);
 
         // Contains and count
@@ -329,6 +377,8 @@ mod tests {
             index.count("aa").unwrap(),
             collections::HashMap::from([(0, 9), (2, 5), (3, 7)])
         );
+        assert_eq!(index.count_within_doc(0, "").unwrap(), 11,);
+        assert_eq!(index.count_within_doc(0, "aa").unwrap(), 9,);
 
         // Locate
         assert_eq!(
@@ -347,6 +397,14 @@ mod tests {
                 (2, vec![4, 3, 2, 1, 0]),
                 (3, vec![6, 5, 4, 3, 2, 1, 0])
             ])
+        );
+        assert_eq!(
+            index.locate_within_doc(0, "").unwrap(),
+            vec![10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+        );
+        assert_eq!(
+            index.locate_within_doc(0, "aa").unwrap(),
+            vec![8, 7, 6, 5, 4, 3, 2, 1, 0],
         );
 
         // Starts with and ends with
@@ -372,7 +430,7 @@ mod tests {
         ];
 
         // Length and values
-        assert_eq!(index.len().unwrap(), 3);
+        assert_eq!(index.num_docs().unwrap(), 3);
         assert_eq!(index.values().unwrap(), expected_values);
 
         // Contains and count
@@ -384,12 +442,14 @@ mod tests {
             index.count("ana").unwrap(),
             collections::HashMap::from([(0, 2), (1, 1), (2, 1)])
         );
+        assert_eq!(index.count_within_doc(1, "ana").unwrap(), 1,);
 
         // Locate
         assert_eq!(
             index.locate("ana").unwrap(),
             collections::HashMap::from([(0, vec![3, 1]), (1, vec![4]), (2, vec![0])])
         );
+        assert_eq!(index.locate_within_doc(1, "ana").unwrap(), vec![4],);
 
         // Starts with and ends with
         assert_eq!(index.starts_with("ba").unwrap(), [0, 1]);

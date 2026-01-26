@@ -1,24 +1,50 @@
 use std::sync;
 
-use pyo3::{PyResult, prelude::*};
+use pyo3::{PyResult, exceptions::PyValueError, prelude::*};
 
 use super::multi_fm_index::MultiFMIndex;
 
 #[pyclass]
 pub(crate) struct IterLocate {
+    doc_id: Option<usize>,
     k: usize,
     end: usize,
     multi_fm_index: sync::Arc<MultiFMIndex>,
 }
 
 impl IterLocate {
-    pub(crate) fn new(pattern: &str, multi_fm_index: sync::Arc<MultiFMIndex>) -> PyResult<Self> {
+    pub(crate) fn new(
+        doc_id: Option<usize>,
+        pattern: &str,
+        multi_fm_index: sync::Arc<MultiFMIndex>,
+    ) -> PyResult<Self> {
         let (start, end) = multi_fm_index.range_search(pattern)?;
-        Ok(Self {
-            k: start,
-            end,
-            multi_fm_index,
-        })
+        match doc_id {
+            Some(doc_id) => {
+                if doc_id >= multi_fm_index.num_docs()? {
+                    return Err(PyValueError::new_err("doc_id is out of bounds"));
+                }
+                let rank = multi_fm_index
+                    .doc_id_of_index()
+                    .rank(doc_id as u32, start)?;
+                let start = multi_fm_index
+                    .doc_id_of_index()
+                    .select(doc_id as u32, rank + 1)?
+                    .unwrap_or(end);
+                Ok(Self {
+                    doc_id: Some(doc_id),
+                    k: start,
+                    end,
+                    multi_fm_index,
+                })
+            }
+            None => Ok(Self {
+                doc_id,
+                k: start,
+                end,
+                multi_fm_index,
+            }),
+        }
     }
 }
 
@@ -38,7 +64,20 @@ impl IterLocate {
         let multi_fm_index = slf.multi_fm_index.clone();
         let k = slf.k;
         let result = py.detach(|| multi_fm_index.doc_offset(k))?;
-        slf.k += 1;
+        slf.k = match slf.doc_id {
+            Some(doc_id) => {
+                let next_k = py.detach(|| {
+                    let rank = multi_fm_index
+                        .doc_id_of_index()
+                        .rank(doc_id as u32, k + 1)?;
+                    multi_fm_index
+                        .doc_id_of_index()
+                        .select(doc_id as u32, rank + 1)
+                })?;
+                next_k.unwrap_or(slf.end)
+            }
+            None => k + 1,
+        };
         Ok(Some(result))
     }
 }
