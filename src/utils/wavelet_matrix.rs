@@ -224,6 +224,72 @@ impl WaveletMatrix {
 
         Ok(Some(index))
     }
+
+    /// Get a list of values c in the range [start, end)
+    pub(crate) fn range_list(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> PyResult<collections::HashMap<u32, usize>> {
+        if start > end {
+            return Err(PyValueError::new_err("start must be less than end"));
+        }
+        if end > self.len {
+            return Err(PyIndexError::new_err("index out of bounds"));
+        }
+
+        struct StackItem {
+            start: usize,
+            end: usize,
+            value: u32,
+        }
+        let mut stack = vec![StackItem {
+            start,
+            end,
+            value: 0u32,
+        }];
+
+        for (layer, zeros_count) in iter::zip(&self.layers, &self.zeros_count_per_layer) {
+            stack = stack.into_iter().try_fold(
+                Vec::new(),
+                |mut acc, item| -> PyResult<Vec<StackItem>> {
+                    let StackItem { start, end, value } = item;
+
+                    let start_zero = layer.rank(false, start)?;
+                    let end_zero = layer.rank(false, end)?;
+
+                    if start_zero != end_zero {
+                        acc.push(StackItem {
+                            start: start_zero,
+                            end: end_zero,
+                            value: value << 1,
+                        });
+                    }
+
+                    let start_one = zeros_count + layer.rank(true, start)?;
+                    let end_one = zeros_count + layer.rank(true, end)?;
+
+                    if start_one != end_one {
+                        acc.push(StackItem {
+                            start: start_one,
+                            end: end_one,
+                            value: (value << 1) | 1u32,
+                        });
+                    }
+
+                    Ok(acc)
+                },
+            )?;
+        }
+
+        let result = stack
+            .into_iter()
+            .filter(|StackItem { start, end, .. }| start != end)
+            .map(|StackItem { start, end, value }| (value, end - start))
+            .collect::<collections::HashMap<_, _>>();
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -259,6 +325,16 @@ mod tests {
             wm.select(0u32, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
+
+        // Range list should return empty map for empty range
+        let result = wm.range_list(0, 0).unwrap();
+        assert_eq!(result.len(), 0);
+
+        // Range list should fail for out of bounds
+        assert_eq!(
+            wm.range_list(0, 1).unwrap_err().to_string(),
+            "IndexError: index out of bounds"
+        );
     }
 
     #[test]
@@ -271,6 +347,16 @@ mod tests {
         assert_eq!(wm.values().unwrap(), vec![0u32; 64]);
         assert_eq!(wm.rank(0u32, 1).unwrap(), 1);
         assert_eq!(wm.select(0u32, 1).unwrap(), Some(0));
+
+        // Range list should show all 64 values are 0
+        let result = wm.range_list(0, 64).unwrap();
+        assert_eq!(result.get(&0), Some(&64));
+        assert_eq!(result.len(), 1);
+
+        // Partial range
+        let result = wm.range_list(10, 20).unwrap();
+        assert_eq!(result.get(&0), Some(&10));
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
@@ -283,6 +369,11 @@ mod tests {
         assert_eq!(wm.values().unwrap(), vec![0u32; 64]);
         assert_eq!(wm.rank(0u32, 1).unwrap(), 1);
         assert_eq!(wm.select(0u32, 1).unwrap(), Some(0));
+
+        // Range list should show all 64 values are 0
+        let result = wm.range_list(0, 64).unwrap();
+        assert_eq!(result.get(&0), Some(&64));
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
@@ -295,6 +386,16 @@ mod tests {
         assert_eq!(wm.values().unwrap(), vec![u32::MAX; 64]);
         assert_eq!(wm.rank(u32::MAX, 1).unwrap(), 1);
         assert_eq!(wm.select(u32::MAX, 1).unwrap(), Some(0));
+
+        // Range list should show all 64 values are u32::MAX
+        let result = wm.range_list(0, 64).unwrap();
+        assert_eq!(result.get(&u32::MAX), Some(&64));
+        assert_eq!(result.len(), 1);
+
+        // Partial range
+        let result = wm.range_list(5, 15).unwrap();
+        assert_eq!(result.get(&u32::MAX), Some(&10));
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
@@ -305,6 +406,14 @@ mod tests {
 
         assert_eq!(wm.access(6).unwrap(), 5u32);
         assert_eq!(wm.access(7).unwrap(), 6u32);
+
+        // Range list for small range containing these values
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // Indices [6, 8): [5, 6]
+        let result = wm.range_list(6, 8).unwrap();
+        assert_eq!(result.get(&5), Some(&1));
+        assert_eq!(result.get(&6), Some(&1));
+        assert_eq!(result.len(), 2);
     }
 
     #[test]
@@ -315,6 +424,15 @@ mod tests {
 
         let expected = vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0];
         assert_eq!(wm.values().unwrap(), expected);
+
+        // Range list should match the count of values
+        let result = wm.range_list(0, 12).unwrap();
+        let expected_counts: collections::HashMap<u32, usize> =
+            [(0, 1), (1, 2), (2, 1), (3, 1), (4, 1), (5, 5), (6, 1)]
+                .iter()
+                .cloned()
+                .collect();
+        assert_eq!(result, expected_counts);
     }
 
     #[test]
@@ -325,6 +443,14 @@ mod tests {
 
         assert_eq!(wm.rank(5u32, 11).unwrap(), 5);
         assert_eq!(wm.rank(1u32, 11).unwrap(), 2);
+
+        // Range list should match rank counts in range
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // Indices [0, 11): [5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5] (excluding last element 0)
+        let result = wm.range_list(0, 11).unwrap();
+        assert_eq!(result.get(&5), Some(&5)); // 5 appears 5 times
+        assert_eq!(result.get(&1), Some(&2)); // 1 appears 2 times
+        assert_eq!(result.get(&0), None); // 0 is not in range
     }
 
     #[test]
@@ -340,5 +466,88 @@ mod tests {
         // Out of range selections
         assert_eq!(wm.select(5u32, 6).unwrap(), None);
         assert_eq!(wm.select(1u32, 6).unwrap(), None);
+
+        // Range list around selected positions
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // 4th occurrence of 5 is at index 6, 2nd occurrence of 1 is at index 8
+        // Range [6, 9): [5, 6, 1]
+        let result = wm.range_list(6, 9).unwrap();
+        assert_eq!(result.get(&5), Some(&1));
+        assert_eq!(result.get(&6), Some(&1));
+        assert_eq!(result.get(&1), Some(&1));
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_range_list_full_range() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+
+        let result = wm.range_list(0, 12).unwrap();
+
+        assert_eq!(result.get(&0), Some(&1)); // 0 appears 1 time
+        assert_eq!(result.get(&1), Some(&2)); // 1 appears 2 times
+        assert_eq!(result.get(&2), Some(&1)); // 2 appears 1 time
+        assert_eq!(result.get(&3), Some(&1)); // 3 appears 1 time
+        assert_eq!(result.get(&4), Some(&1)); // 4 appears 1 time
+        assert_eq!(result.get(&5), Some(&5)); // 5 appears 5 times
+        assert_eq!(result.get(&6), Some(&1)); // 6 appears 1 time
+        assert_eq!(result.len(), 7);
+    }
+
+    #[test]
+    fn test_range_list_partial_range() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // Indices:        0  1  2  3  4  5  6  7  8  9  10 11
+
+        // Test range [0, 5): [5, 4, 5, 5, 2]
+        let result = wm.range_list(0, 5).unwrap();
+        assert_eq!(result.get(&2), Some(&1)); // 2 appears 1 time
+        assert_eq!(result.get(&4), Some(&1)); // 4 appears 1 time
+        assert_eq!(result.get(&5), Some(&3)); // 5 appears 3 times
+        assert_eq!(result.len(), 3);
+
+        // Test range [5, 10): [1, 5, 6, 1, 3]
+        let result = wm.range_list(5, 10).unwrap();
+        assert_eq!(result.get(&1), Some(&2)); // 1 appears 2 times
+        assert_eq!(result.get(&3), Some(&1)); // 3 appears 1 time
+        assert_eq!(result.get(&5), Some(&1)); // 5 appears 1 time
+        assert_eq!(result.get(&6), Some(&1)); // 6 appears 1 time
+        assert_eq!(result.len(), 4);
+    }
+
+    #[test]
+    fn test_range_list_empty_range() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+
+        // Empty range: start == end
+        let result = wm.range_list(5, 5).unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_range_list_errors() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+
+        // Error: start > end
+        assert_eq!(
+            wm.range_list(10, 5).unwrap_err().to_string(),
+            "ValueError: start must be less than end"
+        );
+
+        // Error: end > len
+        assert_eq!(
+            wm.range_list(0, 13).unwrap_err().to_string(),
+            "IndexError: index out of bounds"
+        );
     }
 }

@@ -5,16 +5,16 @@ use pyo3::PyResult;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::fm_index::base_fm_index::{ARRAY_SAMPLING_RATE, BaseFMIndex};
-use crate::utils::suffix_array::suffix_array;
+use crate::fm_index::base_fm_index::BaseFMIndex;
+use crate::utils::{suffix_array::suffix_array, wavelet_matrix::WaveletMatrix};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct MultiFMIndex {
     doc_len: Vec<usize>,
     total_num_chars: usize,
+    doc_start_index: Vec<usize>,
+    doc_id_of_index: WaveletMatrix,
     base_fm_index: BaseFMIndex,
-    doc: collections::HashMap<usize, usize>, // suffix array index -> doc_id
-    pos: Vec<(usize, usize)>,                // (doc_id, offset)
 }
 
 impl MultiFMIndex {
@@ -38,60 +38,43 @@ impl MultiFMIndex {
 
         let suffix_idx = suffix_array(&data);
 
-        let doc_id_of_index = data
+        let doc_start_index = doc_len
             .iter()
-            .scan(0usize, |doc_id, &value| {
-                let ret = *doc_id;
-                if value.is_zero() {
-                    *doc_id += 1;
-                }
-                Some(ret)
+            .scan(0usize, |acc, &len| {
+                let start = *acc;
+                *acc += len + 1; // +1 for the delimiter
+                Some(start)
             })
             .collect::<Vec<_>>();
 
-        let pos = {
-            let doc_start_indices = doc_len
+        let doc_id_of_index = {
+            let doc_ids = data
                 .iter()
-                .scan(0usize, |acc, &len| {
-                    let start = *acc;
-                    *acc += len + 1; // +1 for the delimiter
-                    Some(start)
+                .scan(0u32, |doc_id, &value| {
+                    let ret = *doc_id;
+                    if value.is_zero() {
+                        *doc_id += 1;
+                    }
+                    Some(ret)
                 })
                 .collect::<Vec<_>>();
 
-            suffix_idx
-                .par_iter()
-                .step_by(ARRAY_SAMPLING_RATE)
-                .map(|&suffix_idx| {
-                    let doc_id = doc_id_of_index[suffix_idx];
-                    let offset = suffix_idx - doc_start_indices[doc_id];
-                    Ok((doc_id, offset))
-                })
-                .collect::<PyResult<Vec<_>>>()?
+            WaveletMatrix::new(
+                suffix_idx
+                    .iter()
+                    .map(|&idx| doc_ids[idx])
+                    .collect::<Vec<_>>(),
+            )?
         };
 
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
 
-        let doc = (1..=doc_len.len())
-            .into_par_iter()
-            .map(|idx| {
-                let k = base_fm_index
-                    .burrows_wheeler_transform()
-                    .select(0u32, idx)?
-                    .unwrap();
-                let doc_id = doc_id_of_index[base_fm_index.suffix_idx(k)?];
-                Ok((k, doc_id))
-            })
-            .collect::<PyResult<collections::HashMap<_, _>>>()?;
-
-        drop(doc_id_of_index);
-
         Ok(MultiFMIndex {
             doc_len,
             total_num_chars,
+            doc_start_index,
+            doc_id_of_index,
             base_fm_index,
-            doc,
-            pos,
         })
     }
 
@@ -104,21 +87,11 @@ impl MultiFMIndex {
     }
 
     #[inline]
-    pub(super) fn doc_offset(&self, mut k: usize) -> PyResult<(usize, usize)> {
-        let mut step = 0usize;
-        loop {
-            if let Some(&doc_id) = self.doc.get(&k) {
-                let offset = step;
-                return Ok((doc_id, offset));
-            }
-            if k.is_multiple_of(ARRAY_SAMPLING_RATE) {
-                let (doc_id, mut offset) = self.pos[k / ARRAY_SAMPLING_RATE];
-                offset += step;
-                return Ok((doc_id, offset));
-            }
-            step += 1;
-            k = self.base_fm_index.lf_mapping(k)?;
-        }
+    pub(super) fn doc_offset(&self, k: usize) -> PyResult<(usize, usize)> {
+        let doc_id = self.doc_id_of_index.access(k)? as usize;
+        let doc_start = self.doc_start_index[doc_id];
+        let offset = self.base_fm_index.suffix_idx(k)? - doc_start;
+        Ok((doc_id, offset))
     }
 
     pub(crate) fn len(&self) -> PyResult<usize> {
@@ -173,21 +146,12 @@ impl MultiFMIndex {
         let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
         let (start, end) = self.base_fm_index.range_search(pattern)?;
 
-        let result = (start..end)
-            .into_par_iter()
-            .map(|k| {
-                let (doc_id, _) = self.doc_offset(k)?;
-                Ok(doc_id)
-            })
-            .collect::<PyResult<Vec<_>>>()?
+        let result = self
+            .doc_id_of_index
+            .range_list(start, end)?
             .into_iter()
-            .fold(
-                collections::HashMap::<usize, usize>::new(),
-                |mut acc, doc_id| {
-                    *acc.entry(doc_id).or_insert(0) += 1;
-                    acc
-                },
-            );
+            .map(|(doc_id, count)| (doc_id as usize, count))
+            .collect::<collections::HashMap<usize, usize>>();
 
         Ok(result)
     }
@@ -227,11 +191,11 @@ impl MultiFMIndex {
             let bwt = self.base_fm_index.burrows_wheeler_transform();
             let start_rank = bwt.rank(0, start)?;
             let end_rank = bwt.rank(0, end)?;
-            result = (start_rank + 1..=end_rank)
+            result = (start_rank..end_rank)
                 .into_par_iter()
                 .map(|rank| {
-                    let k = bwt.select(0, rank)?.unwrap();
-                    let doc_id = self.doc[&k];
+                    let k = bwt.select(0, rank + 1)?.unwrap();
+                    let doc_id = self.doc_id_of_index.access(k)? as usize;
                     Ok(doc_id)
                 })
                 .collect::<PyResult<Vec<_>>>()?;

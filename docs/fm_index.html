@@ -423,13 +423,14 @@ making multi-document search efficient in practice.</p>
 <h4 id="time-space-complexity">Time / Space Complexity</h4>
 
 <ul>
-<li>Time: <code>O(S)</code></li>
-<li>Space: <code>O(S)</code></li>
+<li>Time: <code>O(S + D log D)</code></li>
+<li>Space: <code>O(S + D log D)</code></li>
 </ul>
 
 <p>where:</p>
 
 <ul>
+<li><code>D</code> = number of indexed strings</li>
 <li><code>S</code> = total length of all indexed strings</li>
 </ul>
 
@@ -577,7 +578,7 @@ Returns {doc_index: count}.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| + |total_count|)</code></li>
+<li>Time: <code>O(|pattern| + |output| log D)</code></li>
 <li>Space: <code>O(|pattern| + |output|)</code></li>
 </ul>
 
@@ -609,7 +610,7 @@ Internally, result enumeration and aggregation may be parallelized.<br />
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|pattern| + |total_count|)</code></li>
+<li>Time: <code>O(|pattern| + |total_count| log D)</code></li>
 <li>Space: <code>O(|pattern| + |total_count|)</code></li>
 </ul>
 
@@ -644,7 +645,7 @@ an intermediate result dictionary.</p>
 <h3 id="complexity">Complexity</h3>
 
 <ul>
-<li>Time: <code>O(|pattern|)</code> to initialize, then <code>O(1)</code> per yielded occurrence.</li>
+<li>Time: <code>O(|pattern|)</code> to initialize, then <code>O(log D)</code> per yielded occurrence.</li>
 <li>Space: <code>O(|pattern|)</code></li>
 </ul>
 
@@ -678,8 +679,8 @@ an intermediate result dictionary.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|prefix|)</code></li>
-<li>Space: <code>O(|prefix|)</code></li>
+<li>Time: <code>O(|prefix| + |output|)</code></li>
+<li>Space: <code>O(|prefix| + |output|)</code></li>
 </ul>
 
 <h4 id="examples">Examples</h4>
@@ -708,8 +709,8 @@ an intermediate result dictionary.</p>
 <h4 id="complexity">Complexity</h4>
 
 <ul>
-<li>Time: <code>O(|suffix|)</code></li>
-<li>Space: <code>O(|suffix|)</code></li>
+<li>Time: <code>O(|suffix| + |output| log D)</code></li>
+<li>Space: <code>O(|suffix| + |output|)</code></li>
 </ul>
 
 <h4 id="examples">Examples</h4>

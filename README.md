@@ -92,7 +92,7 @@ Query processing is internally parallelized where possible,
 making multi-document search efficient in practice.  
 
 ### Construction Complexity
-- Time / Space: `O(|''.join(data)|)`   
+- Time / Space: `O(|''.join(data)| + len(data) log (len(data)))`   
 
 ```python
 from fm_index import MultiFMIndex
