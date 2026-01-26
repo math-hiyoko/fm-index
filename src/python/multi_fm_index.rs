@@ -20,10 +20,11 @@ use crate::fm_index::multi_fm_index::{iter_locate::IterLocate, multi_fm_index::M
 ///
 /// ### Construction
 /// #### Time / Space Complexity
-/// - Time: `O(S)`
-/// - Space: `O(S)`
+/// - Time: `O(S + D log D)`
+/// - Space: `O(S + D log D)`
 ///
 /// where:
+/// - `D` = number of indexed strings
 /// - `S` = total length of all indexed strings
 ///
 /// ```python
@@ -197,7 +198,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| + |total_count|)`
+    /// - Time: `O(|pattern| + |output| log D)`
     /// - Space: `O(|pattern| + |output|)`
     ///
     /// #### Examples
@@ -217,7 +218,7 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|pattern| + |total_count|)`
+    /// - Time: `O(|pattern| + |total_count| log D)`
     /// - Space: `O(|pattern| + |total_count|)`
     ///
     /// #### Examples
@@ -240,7 +241,7 @@ impl PyMultiFMIndex {
     ///
     /// ### Complexity
     ///
-    /// - Time: `O(|pattern|)` to initialize, then `O(1)` per yielded occurrence.
+    /// - Time: `O(|pattern|)` to initialize, then `O(log D)` per yielded occurrence.
     /// - Space: `O(|pattern|)`
     ///
     /// #### Examples
@@ -262,8 +263,8 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|prefix|)`
-    /// - Space: `O(|prefix|)`
+    /// - Time: `O(|prefix| + |output|)`
+    /// - Space: `O(|prefix| + |output|)`
     ///
     /// #### Examples
     /// ```python
@@ -280,8 +281,8 @@ impl PyMultiFMIndex {
     ///
     /// #### Complexity
     ///
-    /// - Time: `O(|suffix|)`
-    /// - Space: `O(|suffix|)`
+    /// - Time: `O(|suffix| + |output| log D)`
+    /// - Space: `O(|suffix| + |output|)`
     ///
     /// #### Examples
     /// ```python
