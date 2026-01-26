@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::utils::bit_select::BitSelect;
 
 pub(super) type BlockType = u64;
-const SELECT_INDEX_INTERBVAL: usize = 1024;
+const SELECT_INDEX_INTERBVAL: usize = 1 << 13;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct BitVector {
