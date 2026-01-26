@@ -58,7 +58,6 @@ impl MultiFMIndex {
                     Some(ret)
                 })
                 .collect::<Vec<_>>();
-            println!("doc_ids: {:?}", doc_ids);
 
             WaveletMatrix::new(
                 suffix_idx
