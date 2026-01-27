@@ -293,6 +293,7 @@ impl MultiFMIndex {
 #[cfg(test)]
 mod tests {
     use num_traits::Zero;
+    use pyo3::Python;
 
     use super::*;
 
@@ -561,6 +562,8 @@ mod tests {
 
     #[test]
     fn test_topk_k_zero() {
+        Python::initialize();
+
         let data = vec!["abc".to_string(), "def".to_string()];
         let index = MultiFMIndex::new(data).unwrap();
 
