@@ -175,6 +175,28 @@ impl MultiFMIndex {
         Ok(count_within_doc)
     }
 
+    pub(crate) fn topk(&self, pattern: &str, k: usize) -> PyResult<Vec<(usize, usize)>> {
+        if k.is_zero() {
+            return Err(PyValueError::new_err("k must be greater than 0"));
+        }
+        let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
+        let (start, end) = self.base_fm_index.range_search(pattern)?;
+
+        // If no matches found, return empty result
+        if start >= end {
+            return Ok(Vec::new());
+        }
+
+        let result = self
+            .doc_id_of_index
+            .topk(start, end, k)?
+            .into_iter()
+            .map(|(doc_id, count)| (doc_id as usize, count))
+            .collect::<Vec<_>>();
+
+        Ok(result)
+    }
+
     pub(crate) fn locate(
         &self,
         pattern: &str,
@@ -271,6 +293,7 @@ impl MultiFMIndex {
 #[cfg(test)]
 mod tests {
     use num_traits::Zero;
+    use pyo3::Python;
 
     use super::*;
 
@@ -454,5 +477,102 @@ mod tests {
         // Starts with and ends with
         assert_eq!(index.starts_with("ba").unwrap(), [0, 1]);
         assert_eq!(index.ends_with("na").unwrap(), [1, 0]);
+    }
+
+    #[test]
+    fn test_topk_basic() {
+        let data = vec![
+            "abcabcabcabc".to_string(),
+            "xxabcabcxxabc".to_string(),
+            "abcababcabc".to_string(),
+        ];
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // Get top 2 documents with "abc"
+        let result = index.topk("abc", 2).unwrap();
+        assert_eq!(result, vec![(0, 4), (1, 3)]);
+
+        // Get top 3 documents with "abc" (all 3 documents have matches)
+        let result = index.topk("abc", 3).unwrap();
+        assert_eq!(result, vec![(0, 4), (1, 3), (2, 3)]);
+
+        // Get top 5 documents with "abc" (only 3 documents exist)
+        let result = index.topk("abc", 5).unwrap();
+        assert_eq!(result, vec![(0, 4), (1, 3), (2, 3)]);
+
+        // Get top 1 document with "abc"
+        let result = index.topk("abc", 1).unwrap();
+        assert_eq!(result, vec![(0, 4)]);
+    }
+
+    #[test]
+    fn test_topk_no_matches() {
+        let data = vec![
+            "banana".to_string(),
+            "bandana".to_string(),
+            "anaba".to_string(),
+        ];
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // Pattern not found in any document
+        let result = index.topk("xyz", 2).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_topk_single_match() {
+        let data = vec![
+            "hello".to_string(),
+            "world".to_string(),
+            "hello world".to_string(),
+        ];
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // Pattern "hello" appears in docs 0 and 2
+        let mut result = index.topk("hello", 2).unwrap();
+        // Sort by doc_id to ensure consistent ordering
+        result.sort_by_key(|(doc_id, _)| *doc_id);
+        assert_eq!(result, vec![(0, 1), (2, 1)]);
+    }
+
+    #[test]
+    fn test_topk_different_counts() {
+        let data = vec![
+            "aaaaaaaaaa".to_string(),
+            "aaa".to_string(),
+            "aaaa".to_string(),
+            "aa".to_string(),
+        ];
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // Get top 3 documents with "aa"
+        let result = index.topk("aa", 3).unwrap();
+        assert_eq!(result, vec![(0, 9), (2, 3), (1, 2)]);
+    }
+
+    #[test]
+    fn test_topk_empty_collection() {
+        let data = Vec::<String>::new();
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // Should return error for k > 0 with empty collection
+        let result = index.topk("a", 1).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_topk_k_zero() {
+        Python::initialize();
+
+        let data = vec!["abc".to_string(), "def".to_string()];
+        let index = MultiFMIndex::new(data).unwrap();
+
+        // k must be greater than 0
+        let result = index.topk("abc", 0);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "ValueError: k must be greater than 0"
+        );
     }
 }

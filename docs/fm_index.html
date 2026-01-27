@@ -72,6 +72,9 @@
                                 <a class="function" href="#MultiFMIndex.count">count</a>
                         </li>
                         <li>
+                                <a class="function" href="#MultiFMIndex.topk">topk</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#MultiFMIndex.locate">locate</a>
                         </li>
                         <li>
@@ -600,6 +603,42 @@ making multi-document search efficient in practice.</p>
 <span class="c1"># Count within a specific document (returns int)</span>
 <span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="c1"># 4</span>
+</code></pre>
+</div>
+</div>
+
+
+                            </div>
+                            <div id="MultiFMIndex.topk" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">topk</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span>, </span><span class="param"><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>, </span><span class="param"><span class="n">k</span><span class="p">:</span> <span class="nb">int</span></span><span class="return-annotation">) -> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#MultiFMIndex.topk"></a>
+    
+            <div class="docstring"><p>Return the top-k documents with the highest number of occurrences
+of the given pattern.</p>
+
+<h4 id="complexity">Complexity</h4>
+
+<ul>
+<li>Time: <code>O(|pattern| + |total_count| log |total_count| log D)</code></li>
+<li>Space: <code>O(|pattern| + k)</code></li>
+</ul>
+
+<h4 id="examples">Examples</h4>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="c1"># Get top 2 documents containing the pattern</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="c1"># [(0, 4), (1, 3)]</span>
+
+<span class="c1"># If fewer than k documents match, all matching documents are returned</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="c1"># [(0, 4), (1, 3), (2, 3)]</span>
 </code></pre>
 </div>
 </div>

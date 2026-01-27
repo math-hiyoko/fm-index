@@ -156,6 +156,61 @@ def test_count_with_doc_id(
     assert multi_fm_index_ucs4.count("😀😃😀", doc_id=1) == 1
 
 
+def test_topk(
+    multi_fm_index_empty,
+    multi_fm_index_empties,
+    multi_fm_index_ucs1,
+    multi_fm_index_ucs2,
+    multi_fm_index_ucs4,
+):
+    # Empty index
+    assert multi_fm_index_empty.topk("", k=1) == []
+    assert multi_fm_index_empty.topk("a", k=1) == []
+
+    # Empty documents
+    result = multi_fm_index_empties.topk("", k=2)
+    # Sort by doc_id for consistent comparison since counts are equal
+    result_sorted = sorted(result, key=lambda x: x[0])
+    assert result_sorted == [(0, 1), (1, 1)]
+
+    # UCS1 - different counts
+    assert multi_fm_index_ucs1.topk("abc", k=1) == [(0, 4)]
+    assert multi_fm_index_ucs1.topk("abc", k=2) == [(0, 4), (1, 3)]
+    # k=3 may have documents 1 and 2 in any order (both have count 3)
+    result = multi_fm_index_ucs1.topk("abc", k=3)
+    assert len(result) == 3
+    assert result[0] == (0, 4)
+    assert set(result[1:]) == {(1, 3), (2, 3)}
+
+    # k larger than number of matching documents
+    result = multi_fm_index_ucs1.topk("abc", k=5)
+    assert len(result) == 3
+    assert result[0] == (0, 4)
+
+    # Pattern not found
+    assert multi_fm_index_ucs1.topk("xyz", k=2) == []
+
+    # UCS2
+    result = multi_fm_index_ucs2.topk("あいう", k=2)
+    assert result[0] == (0, 3)
+    # Documents 1 and 2 both have count 2, order may vary
+    assert result[1][1] == 2
+    assert result[1][0] in [1, 2]
+
+    # UCS4
+    result = multi_fm_index_ucs4.topk("😀😃😀", k=2)
+    assert result[0] == (0, 2)
+    # Documents 1 and 2 both have count 1, order may vary
+    assert result[1][1] == 1
+    assert result[1][0] in [1, 2]
+
+
+def test_topk_errors(multi_fm_index_ucs1):
+    # k must be greater than 0
+    with pytest.raises(ValueError, match="k must be greater than 0"):
+        multi_fm_index_ucs1.topk("abc", k=0)
+
+
 def test_locate(
     multi_fm_index_empty,
     multi_fm_index_empties,
