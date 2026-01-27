@@ -54,6 +54,10 @@ class BenchMultiFMIndex:
         pattern = random_data[0][:5]
         benchmark(random_multi_fm_index.count, pattern)
 
+    def bench_multi_topk(self, benchmark, random_multi_fm_index, random_data):
+        pattern = random_data[0][:5]
+        benchmark(random_multi_fm_index.topk, pattern, k=10)
+
     def bench_multi_locate(self, benchmark, random_multi_fm_index, random_data):
         pattern = random_data[0][:5]
         benchmark(random_multi_fm_index.locate, pattern)

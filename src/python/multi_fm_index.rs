@@ -233,6 +233,35 @@ impl PyMultiFMIndex {
         }
     }
 
+    /// Return the top-k documents with the highest number of occurrences
+    /// of the given pattern.
+    ///
+    /// #### Complexity
+    ///
+    /// - Time: `O(|pattern| + |total_count| log |total_count| log D)`
+    /// - Space: `O(|pattern| + k)`
+    ///
+    /// #### Examples
+    /// ```python
+    /// # Get top 2 documents containing the pattern
+    /// mfm.topk("abc", k=2)
+    /// # [(0, 4), (1, 3)]
+    ///
+    /// # If fewer than k documents match, all matching documents are returned
+    /// mfm.topk("abc", k=5)
+    /// # [(0, 4), (1, 3), (2, 3)]
+    /// ```
+    fn topk(
+        &self,
+        py: Python<'_>,
+        pattern: &Bound<'_, PyString>,
+        k: usize,
+    ) -> PyResult<Py<PyList>> {
+        let pattern = pattern.to_str()?;
+        let result = py.detach(|| self.inner.topk(pattern, k))?;
+        Ok(PyList::new(py, result)?.unbind())
+    }
+
     /// Locate occurrences per document or within a specific document.
     /// Internally, result enumeration and aggregation may be parallelized.
     /// ⚠️ Order is not guaranteed.
@@ -505,6 +534,21 @@ mod tests {
                     .unwrap(),
                 Vec::<usize>::new()
             );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "a"), 1)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                Vec::<(usize, usize)>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "a"), 0)
+                    .unwrap_err()
+                    .to_string(),
+                "ValueError: k must be greater than 0"
+            );
         });
     }
 
@@ -648,6 +692,21 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 Vec::<usize>::new()
+            );
+            let mut result = multi_fm_index
+                .topk(py, &PyString::new(py, ""), 2)
+                .unwrap()
+                .extract::<Vec<(usize, usize)>>(py)
+                .unwrap();
+            result.sort_by_key(|(doc_id, _)| *doc_id);
+            assert_eq!(result, vec![(0, 1), (1, 1)]);
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "a"), 1)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                Vec::<(usize, usize)>::new()
             );
         });
     }
@@ -879,6 +938,38 @@ mod tests {
                     .unwrap(),
                 Vec::<usize>::new()
             );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "abc"), 2)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 4), (1, 3)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "abc"), 5)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 4), (1, 3), (2, 3)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "abc"), 1)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 4)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "xyz"), 2)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                Vec::<(usize, usize)>::new()
+            );
         });
     }
 
@@ -1108,6 +1199,30 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 Vec::<usize>::new()
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "あいう"), 2)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 3), (1, 2)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "あいう"), 5)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 3), (1, 2), (2, 2)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "abc"), 1)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                Vec::<(usize, usize)>::new()
             );
         });
     }
@@ -1339,6 +1454,30 @@ mod tests {
                     .unwrap(),
                 [2, 0]
             );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "😀😃😀"), 2)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 2), (1, 1)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "😀😃😀"), 5)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 2), (1, 1), (2, 1)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "abc"), 1)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                Vec::<(usize, usize)>::new()
+            );
         });
     }
 
@@ -1472,6 +1611,22 @@ mod tests {
                     .extract::<Vec<usize>>(py)
                     .unwrap(),
                 [0]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "👨‍👩‍👧‍👦"), 2)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 2), (1, 1)]
+            );
+            assert_eq!(
+                multi_fm_index
+                    .topk(py, &PyString::new(py, "👨‍👩‍👧‍👦"), 5)
+                    .unwrap()
+                    .extract::<Vec<(usize, usize)>>(py)
+                    .unwrap(),
+                vec![(0, 2), (1, 1), (2, 1)]
             );
         });
     }

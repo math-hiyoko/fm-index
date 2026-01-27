@@ -1,4 +1,4 @@
-use std::{collections, iter};
+use std::{cmp, collections, iter};
 
 use num_traits::{One, Zero};
 use pyo3::{
@@ -290,6 +290,87 @@ impl WaveletMatrix {
 
         Ok(result)
     }
+
+    // Count values in [start, end) with the top-k highest frequencies.
+    pub(crate) fn topk(&self, start: usize, end: usize, k: usize) -> PyResult<Vec<(u32, usize)>> {
+        if start >= end {
+            return Err(PyValueError::new_err("start must be less than end"));
+        }
+        if end > self.len {
+            return Err(PyIndexError::new_err("index out of bounds"));
+        }
+        if k.is_zero() {
+            return Err(PyValueError::new_err("k must be greater than 0"));
+        }
+        let k = k.min(end - start);
+
+        #[derive(cmp::PartialEq, Eq, PartialOrd, Ord)]
+        struct QueueItem {
+            len: usize,
+            depth: usize,
+            start: usize,
+            end: usize,
+            value: u32,
+        }
+        let mut heap = collections::BinaryHeap::from(vec![QueueItem {
+            len: end - start,
+            depth: 0,
+            start,
+            end,
+            value: 0u32,
+        }]);
+
+        let mut result = Vec::with_capacity(k);
+        while let Some(QueueItem {
+            len,
+            depth,
+            start,
+            end,
+            value,
+        }) = heap.pop()
+        {
+            if depth == self.height {
+                result.push((value, len));
+                if result.len() == k {
+                    break;
+                }
+                continue;
+            }
+
+            let layer = &self.layers[depth];
+            let zeros_count = self.zeros_count_per_layer[depth];
+
+            let start_zero = layer.rank(false, start)?;
+            let end_zero = layer.rank(false, end)?;
+            debug_assert!(start_zero <= end_zero);
+
+            let start_one = zeros_count + layer.rank(true, start)?;
+            let end_one = zeros_count + layer.rank(true, end)?;
+            debug_assert!(start_one <= end_one);
+
+            if start_zero != end_zero {
+                heap.push(QueueItem {
+                    len: end_zero - start_zero,
+                    depth: depth + 1,
+                    start: start_zero,
+                    end: end_zero,
+                    value: value << 1usize,
+                });
+            }
+
+            if end_one != start_one {
+                heap.push(QueueItem {
+                    len: end_one - start_one,
+                    depth: depth + 1,
+                    start: start_one,
+                    end: end_one,
+                    value: (value << 1usize) | 1u32,
+                });
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -549,5 +630,157 @@ mod tests {
             wm.range_list(0, 13).unwrap_err().to_string(),
             "IndexError: index out of bounds"
         );
+    }
+
+    #[test]
+    fn test_topk_basic() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // Value frequencies in full range: 5->5, 1->2, 0->1, 2->1, 3->1, 4->1, 6->1
+
+        // Top 3 values
+        let result = wm.topk(0, 12, 3).unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], (5, 5)); // 5 appears 5 times (most frequent)
+        assert_eq!(result[1], (1, 2)); // 1 appears 2 times
+        // Third element could be any of the values that appear once
+        assert_eq!(result[2].1, 1);
+    }
+
+    #[test]
+    fn test_topk_all_values() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+
+        // Request more than unique values (should return all 7 unique values)
+        let result = wm.topk(0, 12, 100).unwrap();
+        assert_eq!(result.len(), 7);
+        assert_eq!(result[0], (5, 5)); // 5 appears 5 times
+        assert_eq!(result[1], (1, 2)); // 1 appears 2 times
+        // Remaining 5 values appear once each
+        assert!(result[2..].iter().all(|(_, count)| *count == 1));
+    }
+
+    #[test]
+    fn test_topk_partial_range() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+        // Test data: vec![5, 4, 5, 5, 2, 1, 5, 6, 1, 3, 5, 0]
+        // Indices:        0  1  2  3  4  5  6  7  8  9  10 11
+
+        // Range [0, 5): [5, 4, 5, 5, 2]
+        // Value frequencies: 5->3, 4->1, 2->1
+        let result = wm.topk(0, 5, 2).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], (5, 3)); // 5 appears 3 times
+        // Second element could be 4 or 2, both appear once
+        assert_eq!(result[1].1, 1);
+
+        // Range [5, 10): [1, 5, 6, 1, 3]
+        // Value frequencies: 1->2, 5->1, 6->1, 3->1
+        let result = wm.topk(5, 10, 2).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], (1, 2)); // 1 appears 2 times
+        assert_eq!(result[1].1, 1); // One of 5, 6, or 3
+    }
+
+    #[test]
+    fn test_topk_single_element() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+
+        // Single element range
+        let result = wm.topk(0, 1, 1).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], (5, 1)); // First element is 5
+    }
+
+    #[test]
+    fn test_topk_all_same_frequency() {
+        Python::initialize();
+
+        // All different values with same frequency
+        let wm = WaveletMatrix::new(vec![1, 2, 3, 4, 5]).unwrap();
+
+        let result = wm.topk(0, 5, 3).unwrap();
+        assert_eq!(result.len(), 3);
+        // All have frequency 1
+        assert!(result.iter().all(|(_, count)| *count == 1));
+    }
+
+    #[test]
+    fn test_topk_errors() {
+        Python::initialize();
+
+        let wm = create_test_wavelet_matrix();
+
+        // Error: start >= end
+        assert_eq!(
+            wm.topk(5, 5, 1).unwrap_err().to_string(),
+            "ValueError: start must be less than end"
+        );
+
+        assert_eq!(
+            wm.topk(10, 5, 1).unwrap_err().to_string(),
+            "ValueError: start must be less than end"
+        );
+
+        // Error: end > len
+        assert_eq!(
+            wm.topk(0, 13, 1).unwrap_err().to_string(),
+            "IndexError: index out of bounds"
+        );
+
+        // Error: k == 0
+        assert_eq!(
+            wm.topk(0, 12, 0).unwrap_err().to_string(),
+            "ValueError: k must be greater than 0"
+        );
+    }
+
+    #[test]
+    fn test_topk_empty_matrix() {
+        Python::initialize();
+
+        let wm = WaveletMatrix::new(vec![]).unwrap();
+
+        // Empty matrix should fail
+        assert_eq!(
+            wm.topk(0, 0, 1).unwrap_err().to_string(),
+            "ValueError: start must be less than end"
+        );
+    }
+
+    #[test]
+    fn test_topk_all_zeros() {
+        Python::initialize();
+
+        let wm = WaveletMatrix::new(vec![0u32; 64]).unwrap();
+
+        let result = wm.topk(0, 64, 1).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], (0, 64)); // All 64 values are 0
+
+        // Partial range
+        let result = wm.topk(10, 20, 5).unwrap();
+        assert_eq!(result.len(), 1); // Only one unique value (0)
+        assert_eq!(result[0], (0, 10));
+    }
+
+    #[test]
+    fn test_topk_large_values() {
+        Python::initialize();
+
+        let wm = WaveletMatrix::new(vec![u32::MAX; 10]).unwrap();
+
+        let result = wm.topk(0, 10, 1).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], (u32::MAX, 10));
     }
 }
