@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::bit_select::BitSelect;
 
-pub(super) type BlockType = u64;
-const SELECT_INDEX_INTERBVAL: usize = 1 << 13;
+pub(super) type BlockType = u128;
+const SELECT_INDEX_INTERBVAL: usize = 1 << 14;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct BitVector {
@@ -88,8 +88,9 @@ impl BitVector {
         let (block_index, bit_index) = end.div_rem(&(BlockType::BITS as usize));
         let mut rank = self.ranks[block_index];
         if block_index < self.blocks.len() {
-            rank += (self.blocks[block_index] & ((1 << bit_index) - BlockType::one())).count_ones()
-                as usize;
+            rank += (self.blocks[block_index]
+                & ((BlockType::one() << bit_index) - BlockType::one()))
+            .count_ones() as usize;
         }
         Ok(rank)
     }
