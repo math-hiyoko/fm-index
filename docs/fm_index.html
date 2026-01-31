@@ -695,7 +695,7 @@ Internally, result enumeration and aggregation may be parallelized.
                                 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">iter_locate</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="bp">self</span>,</span><span class="param">	<span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">doc_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></span><span class="return-annotation">) -> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span>:</span></span>
+        <span class="name">iter_locate</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="bp">self</span>,</span><span class="param">	<span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">doc_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></span><span class="return-annotation">) -> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">|</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span>:</span></span>
 
         
     </div>
@@ -703,8 +703,8 @@ Internally, result enumeration and aggregation may be parallelized.
     
             <div class="docstring"><p>Lazily locate all occurrences of the pattern across documents or within a specific document.</p>
 
-<p>Yields <code>(doc_index, position)</code> pairs without constructing
-an intermediate result dictionary.</p>
+<p>When <code>doc_id</code> is None, yields <code>(doc_id, position)</code> pairs.
+When <code>doc_id</code> is specified, yields only <code>position</code> values.</p>
 
 <p>⚠️ Order of yielded results is not guaranteed.</p>
 
@@ -737,9 +737,9 @@ an intermediate result dictionary.</p>
 <span class="c1"># Iterate within a specific document</span>
 <span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
-<span class="c1"># (0, 9)</span>
+<span class="c1"># 9</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
-<span class="c1"># (0, 6)</span>
+<span class="c1"># 6</span>
 <span class="o">...</span>
 </code></pre>
 </div>

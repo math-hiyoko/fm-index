@@ -147,7 +147,7 @@ for doc_id, pos in mfm.iter_locate(pattern="検索"):
 # Iterate within a specific document
 for doc_id, pos in mfm.iter_locate(pattern="検索", doc_id=3):
     print(doc_id, pos)
-# 3 6
+# 6
 ```
 
 ### Prefix / Suffix Search
