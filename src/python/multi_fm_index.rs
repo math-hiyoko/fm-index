@@ -308,8 +308,8 @@ impl PyMultiFMIndex {
 
     /// Lazily locate all occurrences of the pattern across documents or within a specific document.
     ///
-    /// Yields `(doc_index, position)` pairs without constructing
-    /// an intermediate result dictionary.
+    /// When `doc_id` is None, yields `(doc_id, position)` pairs.
+    /// When `doc_id` is specified, yields only `position` values.
     ///
     /// ⚠️ Order of yielded results is not guaranteed.
     ///
@@ -335,9 +335,9 @@ impl PyMultiFMIndex {
     /// # Iterate within a specific document
     /// iter = mfm.iter_locate("abc", doc_id=0)
     /// next(iter)
-    /// # (0, 9)
+    /// # 9
     /// next(iter)
-    /// # (0, 6)
+    /// # 6
     /// ...
     /// ```
     #[pyo3(signature = (pattern, doc_id=None))]
@@ -864,7 +864,7 @@ mod tests {
                 results.push(result);
             }
             assert_eq!(results.len(), 10);
-            assert_eq!(results[0], (2, 8));
+            assert_eq!(results[0].extract::<(usize, usize)>(py).unwrap(), (2, 8));
             let iter_locate_doc = multi_fm_index
                 .iter_locate(py, &PyString::new(py, "abc"), Some(0))
                 .unwrap();
@@ -873,7 +873,11 @@ mod tests {
             while let Some(result) = IterLocate::__next__(py_iter_doc.borrow_mut(py), py).unwrap() {
                 results.push(result);
             }
-            assert_eq!(results, vec![(0, 9), (0, 6), (0, 3), (0, 0)]);
+            let extracted: Vec<usize> = results
+                .into_iter()
+                .map(|item| item.extract::<usize>(py).unwrap())
+                .collect();
+            assert_eq!(extracted, vec![9, 6, 3, 0]);
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1126,7 +1130,7 @@ mod tests {
                 results.push(result);
             }
             assert_eq!(results.len(), 7);
-            assert_eq!(results[0], (2, 5));
+            assert_eq!(results[0].extract::<(usize, usize)>(py).unwrap(), (2, 5));
             let iter_locate_doc = multi_fm_index
                 .iter_locate(py, &PyString::new(py, "あいう"), Some(1))
                 .unwrap();
@@ -1135,7 +1139,11 @@ mod tests {
             while let Some(result) = IterLocate::__next__(py_iter_doc.borrow_mut(py), py).unwrap() {
                 results.push(result);
             }
-            assert_eq!(results, vec![(1, 5), (1, 2)]);
+            let extracted: Vec<usize> = results
+                .into_iter()
+                .map(|item| item.extract::<usize>(py).unwrap())
+                .collect();
+            assert_eq!(extracted, vec![5, 2]);
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1380,7 +1388,7 @@ mod tests {
                 results.push(result);
             }
             assert_eq!(results.len(), 4);
-            assert_eq!(results[0], (2, 0));
+            assert_eq!(results[0].extract::<(usize, usize)>(py).unwrap(), (2, 0));
             let iter_locate_doc = multi_fm_index
                 .iter_locate(py, &PyString::new(py, "😀😃😀"), Some(0))
                 .unwrap();
@@ -1389,7 +1397,11 @@ mod tests {
             while let Some(result) = IterLocate::__next__(py_iter_doc.borrow_mut(py), py).unwrap() {
                 results.push(result);
             }
-            assert_eq!(results, vec![(0, 2), (0, 0)]);
+            let extracted: Vec<usize> = results
+                .into_iter()
+                .map(|item| item.extract::<usize>(py).unwrap())
+                .collect();
+            assert_eq!(extracted, vec![2, 0]);
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))
@@ -1579,7 +1591,11 @@ mod tests {
             while let Some(result) = IterLocate::__next__(py_iter_doc.borrow_mut(py), py).unwrap() {
                 results.push(result);
             }
-            assert_eq!(results, vec![(0, 7), (0, 0)]);
+            let extracted: Vec<usize> = results
+                .into_iter()
+                .map(|item| item.extract::<usize>(py).unwrap())
+                .collect();
+            assert_eq!(extracted, vec![7, 0]);
             assert_eq!(
                 multi_fm_index
                     .startswith(py, &PyString::new(py, ""))

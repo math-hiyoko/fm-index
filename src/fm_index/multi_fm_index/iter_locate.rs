@@ -54,16 +54,22 @@ impl IterLocate {
         slf
     }
 
-    pub(crate) fn __next__(
-        mut slf: PyRefMut<Self>,
-        py: Python<'_>,
-    ) -> PyResult<Option<(usize, usize)>> {
+    pub(crate) fn __next__(mut slf: PyRefMut<Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if slf.k >= slf.end {
             return Ok(None);
         }
         let multi_fm_index = slf.multi_fm_index.clone();
         let k = slf.k;
-        let result = py.detach(|| multi_fm_index.doc_offset(k))?;
+        let result = match slf.doc_id {
+            Some(_) => {
+                let (_, offset) = py.detach(|| multi_fm_index.doc_offset(k))?;
+                offset.into_pyobject(py)?.unbind().into()
+            }
+            None => {
+                let (doc_id, offset) = py.detach(|| multi_fm_index.doc_offset(k))?;
+                (doc_id, offset).into_pyobject(py)?.unbind().into()
+            }
+        };
         slf.k = match slf.doc_id {
             Some(doc_id) => {
                 let next_k = py.detach(|| {

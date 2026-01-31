@@ -297,32 +297,13 @@ def test_iter_locate_with_doc_id(
     multi_fm_index_ucs2,
     multi_fm_index_ucs4,
 ):
-    assert list(multi_fm_index_empties.iter_locate("", doc_id=0)) == [(0, 0)]
-    assert list(multi_fm_index_ucs1.iter_locate("abc", doc_id=0)) == [
-        (0, 9),
-        (0, 6),
-        (0, 3),
-        (0, 0),
-    ]
-    assert list(multi_fm_index_ucs1.iter_locate("abc", doc_id=1)) == [
-        (1, 10),
-        (1, 2),
-        (1, 5),
-    ]
-    assert list(multi_fm_index_ucs2.iter_locate("あいう", doc_id=0)) == [
-        (0, 6),
-        (0, 3),
-        (0, 0),
-    ]
-    assert list(multi_fm_index_ucs2.iter_locate("あいう", doc_id=1)) == [
-        (1, 5),
-        (1, 2),
-    ]
-    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀", doc_id=0)) == [
-        (0, 2),
-        (0, 0),
-    ]
-    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀", doc_id=1)) == [(1, 2)]
+    assert list(multi_fm_index_empties.iter_locate("", doc_id=0)) == [0]
+    assert list(multi_fm_index_ucs1.iter_locate("abc", doc_id=0)) == [9, 6, 3, 0]
+    assert list(multi_fm_index_ucs1.iter_locate("abc", doc_id=1)) == [10, 2, 5]
+    assert list(multi_fm_index_ucs2.iter_locate("あいう", doc_id=0)) == [6, 3, 0]
+    assert list(multi_fm_index_ucs2.iter_locate("あいう", doc_id=1)) == [5, 2]
+    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀", doc_id=0)) == [2, 0]
+    assert list(multi_fm_index_ucs4.iter_locate("😀😃😀", doc_id=1)) == [2]
 
 
 def test_startswith(
