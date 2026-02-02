@@ -226,7 +226,6 @@ ruff format
 pdoc fm_index \
       --output-directory docs \
       --no-search \
-      --no-show-source \
       --docformat markdown \
       --template-directory pdoc_templates
 ```
