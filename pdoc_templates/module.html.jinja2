@@ -1,5 +1,14 @@
 {% extends "frame.html.jinja2" %}
 {% block title %}{{ module.modulename }} API documentation{% endblock %}
+{% block head %}
+<style>
+@media (max-width: 768px) {
+    nav.pdoc > label#navtoggle {
+        top: 100px;
+    }
+}
+</style>
+{% endblock %}
 {% block nav %}
     {% block module_list_link %}
         {% set parentmodule = ".".join(module.modulename.split(".")[:-1]) %}
@@ -74,12 +83,13 @@
 {% endblock nav %}
 {% block content %}
     <main class="pdoc">
-        <!-- ads-->
-        <div class="admax-switch" data-admax-id="f1c017427a61195af0c3eac38861c8d8" style="display:inline-block;"></div>
+        <!-- ads -->
+        <div class="admax-switch" data-admax-id="3ae5cb2202dcd2297fcffb4838476e86" style="display:inline-block;"></div>
         <script type="text/javascript">
-        (admaxads = window.admaxads || []).push({admax_id: "f1c017427a61195af0c3eac38861c8d8",type: "switch"});</script>
+        (admaxads = window.admaxads || []).push({admax_id: "3ae5cb2202dcd2297fcffb4838476e86",type: "switch"});</script>
         <script type="text/javascript" charset="utf-8" src="https://adm.shinobi.jp/st/t.js" async></script>
         <!-- ads -->
+
         {% block module_info %}
             <section class="module-info">
                 {% block edit_button %}
