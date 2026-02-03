@@ -226,9 +226,8 @@ ruff format
 pdoc fm_index \
       --output-directory docs \
       --no-search \
-      --no-show-source \
       --docformat markdown \
-      --footer-text "© 2026 Koki Watanabe"
+      --template-directory pdoc_templates
 ```
 
 ## References
