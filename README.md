@@ -241,5 +241,5 @@ pdoc fm_index \
   https://doi.org/10.1109/SFCS.2000.892127.  
 - FM Indexを使うとWikipedia全文検索みたいなことができる  
   https://qiita.com/math-hiyoko/items/10d50527504914e00388  
-- A Wikipedia-scale search index, built in one line.
+- A Wikipedia-scale search index, built in one line.  
   https://medium.com/@koki.watanabe.56/a-wikipedia-scale-search-index-built-in-one-line-1847bb05198b
