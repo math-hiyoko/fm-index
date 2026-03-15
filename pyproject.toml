@@ -54,7 +54,6 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/math-hiyoko/fm-index"
 documentation = "https://math-hiyoko.github.io/fm-index"
 repository = "https://github.com/math-hiyoko/fm-index"
 
