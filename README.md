@@ -11,6 +11,7 @@
 ![PyPI - Format](https://img.shields.io/pypi/format/fm-index)
 ![Rust](https://img.shields.io/badge/powered%20by-Rust-orange)
 ![Unsafe](https://img.shields.io/badge/unsafe-0-success)
+![GitHub Repo stars](https://img.shields.io/github/stars/math-hiyoko/fm-index)
 
 
 High-performance FM-index implementation powered by Rust,  
