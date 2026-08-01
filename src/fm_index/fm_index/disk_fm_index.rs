@@ -1,28 +1,33 @@
-use std::iter;
-
-use pyo3::{PyResult, exceptions::PyRuntimeError};
-use serde::{Deserialize, Serialize};
+use memmap2::Mmap;
+use pyo3::{PyResult, exceptions::PyOSError};
 
 use crate::{
-    fm_index::{base_fm_index::base_fm_index::BaseFMIndex, traits::fm_index::FMIndexTrait},
-    utils::suffix_array::suffix_array_vec,
+    fm_index::{
+        base_fm_index::disk_base_fm_index::DiskBaseFMIndex, traits::fm_index::FMIndexTrait,
+    },
+    utils::suffix_array::suffix_array_mmap,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct FMIndex {
-    base_fm_index: BaseFMIndex,
+pub(crate) struct DiskFMIndex {
+    base_fm_index: DiskBaseFMIndex,
 }
 
-impl FMIndex {
-    pub(crate) fn new(data: Vec<u32>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_vec(&data).map_err(PyRuntimeError::new_err)?;
-        let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
-        Ok(FMIndex { base_fm_index })
+impl DiskFMIndex {
+    pub(crate) fn new(data: Mmap) -> PyResult<Self> {
+        let (suffix_idx, _) = suffix_array_mmap(&data).map_err(PyOSError::new_err)?;
+        let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx)?;
+        Ok(Self { base_fm_index })
+    }
+
+    pub(crate) fn try_clone(&self) -> PyResult<Self> {
+        Ok(Self {
+            base_fm_index: self.base_fm_index.try_clone()?,
+        })
     }
 }
 
-impl FMIndexTrait for FMIndex {
-    type BaseFMIndex = BaseFMIndex;
+impl FMIndexTrait for DiskFMIndex {
+    type BaseFMIndex = DiskBaseFMIndex;
 
     fn get_base_fm_index(&self) -> &Self::BaseFMIndex {
         &self.base_fm_index
@@ -31,23 +36,36 @@ impl FMIndexTrait for FMIndex {
 
 #[cfg(test)]
 mod tests {
+    use bytemuck::cast_slice_mut;
+    use memmap2::MmapMut;
     use num_traits::Zero;
+    use tempfile::tempfile;
 
     use super::*;
 
-    fn create_fm_index(data: &str) -> PyResult<FMIndex> {
-        let data = data
-            .chars()
-            .map(|c| c as u32 + 1)
-            .chain(iter::once(0))
-            .collect();
-        FMIndex::new(data)
+    fn create_disk_fm_index(data: &str) -> PyResult<DiskFMIndex> {
+        let data_file = tempfile().map_err(PyOSError::new_err)?;
+        data_file
+            .set_len(((data.chars().count() + 1) * std::mem::size_of::<u32>()) as u64)
+            .map_err(PyOSError::new_err)?;
+        #[allow(unsafe_code)]
+        let mut data_mmap =
+            unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
+        let data_slice = cast_slice_mut::<u8, u32>(&mut data_mmap[..]);
+        for (i, c) in data.chars().enumerate() {
+            data_slice[i] = c as u32 + 1;
+        }
+        data_slice[data.chars().count()] = 0; // null terminator
+        let data_mmap = data_mmap
+            .make_read_only()
+            .map_err(PyOSError::new_err)?;
+        DiskFMIndex::new(data_mmap)
     }
 
     #[test]
     fn test_empty_index() {
         let data = "";
-        let index = create_fm_index(data).unwrap();
+        let index = create_disk_fm_index(data).unwrap();
 
         // Length and values
         assert!(index.len().is_zero());
@@ -73,7 +91,7 @@ mod tests {
     #[test]
     fn test_single_repeated_character() {
         let data = "aaaaaaaaaa";
-        let index = create_fm_index(data).unwrap();
+        let index = create_disk_fm_index(data).unwrap();
 
         // Length and values
         assert_eq!(index.len(), 10);
@@ -106,7 +124,7 @@ mod tests {
     #[test]
     fn test_byte_string_operations() {
         let data = "mississippi";
-        let index = create_fm_index(data).unwrap();
+        let index = create_disk_fm_index(data).unwrap();
 
         // Length and values
         assert_eq!(index.len(), 11);
@@ -134,7 +152,7 @@ mod tests {
     #[test]
     fn test_unicode_string_operations() {
         let text = "にわにはにわにわとりがいる";
-        let index = create_fm_index(text).unwrap();
+        let index = create_disk_fm_index(text).unwrap();
 
         // Length and values
         assert_eq!(index.len(), 13);

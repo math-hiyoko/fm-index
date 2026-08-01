@@ -1,32 +1,47 @@
-use std::iter;
+use std::{fs, iter, mem};
 
+use bytemuck::{cast_slice, cast_slice_mut};
+use memmap2::{Mmap, MmapMut};
 use num_traits::Zero;
-use pyo3::PyResult;
-use serde::{Deserialize, Serialize};
+use pyo3::{PyResult, exceptions::PyOSError};
+use tempfile::tempfile;
 
 use crate::{
     fm_index::{
-        base_fm_index::base_fm_index::BaseFMIndex, traits::multi_fm_index::MultiFMIndexTrait,
+        base_fm_index::disk_base_fm_index::DiskBaseFMIndex,
+        traits::multi_fm_index::MultiFMIndexTrait,
     },
     utils::{
-        suffix_array::suffix_array_vec,
-        wavelet_matrix::{bit_vector::BitVector, wavelet_matrix::WaveletMatrix},
+        disk_wavelet_matrix::{
+            disk_bit_vector::DiskBitVector, disk_wavelet_matrix::DiskWaveletMatrix,
+        },
+        suffix_array::suffix_array_mmap,
     },
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct MultiFMIndex {
-    base_fm_index: BaseFMIndex,
-    doc_start_index: Vec<usize>,
-    doc_id_of_index: WaveletMatrix<usize>,
+pub(crate) struct DiskMultiFMIndex {
+    base_fm_index: DiskBaseFMIndex,
+    doc_start_index_mmap: Mmap,
+    doc_start_index_file: fs::File,
+    doc_id_of_index: DiskWaveletMatrix<usize>,
 }
 
-impl MultiFMIndex {
-    pub(crate) fn new(data: Vec<u32>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_vec(&data)?;
+impl DiskMultiFMIndex {
+    pub(crate) fn new(data: Mmap) -> PyResult<Self> {
+        let data_slice = cast_slice::<u8, u32>(&data);
+
+        let (suffix_idx_mmap, _) = suffix_array_mmap(&data)?;
 
         let doc_id_of_index = {
-            let doc_ids = data
+            let doc_ids_file = tempfile().map_err(PyOSError::new_err)?;
+            doc_ids_file
+                .set_len((data.len() / mem::size_of::<u32>()) as u64)
+                .map_err(PyOSError::new_err)?;
+            #[allow(unsafe_code)]
+            let mut doc_ids_mmap =
+                unsafe { MmapMut::map_mut(&doc_ids_file).map_err(PyOSError::new_err)? };
+            let doc_ids_slice: &mut [usize] = cast_slice_mut(&mut doc_ids_mmap[..]);
+            data_slice
                 .iter()
                 .scan(0usize, |doc_id, &value| {
                     let ret = *doc_id;
@@ -35,43 +50,96 @@ impl MultiFMIndex {
                     }
                     Some(ret)
                 })
-                .collect::<Vec<_>>();
+                .enumerate()
+                .for_each(|(i, doc_id)| {
+                    doc_ids_slice[i] = doc_id;
+                });
 
-            WaveletMatrix::new(
-                suffix_idx
-                    .iter()
-                    .map(|&idx| doc_ids[idx])
-                    .collect::<Vec<_>>(),
-            )?
+            let doc_ids_of_suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
+            doc_ids_of_suffix_idx_file
+                .set_len((suffix_idx_mmap.len() / mem::size_of::<usize>()) as u64)
+                .map_err(PyOSError::new_err)?;
+            #[allow(unsafe_code)]
+            let mut doc_ids_of_suffix_idx_mmap = unsafe {
+                MmapMut::map_mut(&doc_ids_of_suffix_idx_file).map_err(PyOSError::new_err)?
+            };
+            let doc_ids_of_suffix_idx_slice: &mut [usize] =
+                cast_slice_mut(&mut doc_ids_of_suffix_idx_mmap[..]);
+            let suffix_idx_slice = cast_slice::<u8, usize>(&suffix_idx_mmap);
+            suffix_idx_slice
+                .iter()
+                .map(|&idx| doc_ids_slice[idx])
+                .enumerate()
+                .for_each(|(i, doc_id)| {
+                    doc_ids_of_suffix_idx_slice[i] = doc_id;
+                });
+
+            DiskWaveletMatrix::<usize>::new(doc_ids_of_suffix_idx_mmap, doc_ids_of_suffix_idx_file).map_err(PyOSError::new_err)?
         };
 
-        let doc_start_index = iter::once(0)
-            .chain(data.iter().enumerate().filter_map(|(i, &value)| {
-                if value.is_zero() && i + 1 < data.len() {
+        let doc_start_index_file = tempfile().map_err(PyOSError::new_err)?;
+        doc_start_index_file
+            .set_len(
+                (data_slice.iter().filter(|&&c| c.is_zero()).count() * mem::size_of::<usize>())
+                    as u64,
+            )
+            .map_err(PyOSError::new_err)?;
+        #[allow(unsafe_code)]
+        let mut doc_start_index_mmap =
+            unsafe { MmapMut::map_mut(&doc_start_index_file).map_err(PyOSError::new_err)? };
+        let doc_start_index_slice: &mut [usize] = cast_slice_mut(&mut doc_start_index_mmap[..]);
+        iter::once(0)
+            .chain(data_slice.iter().enumerate().filter_map(|(i, &value)| {
+                if value.is_zero() && i + 1 < data_slice.len() {
                     Some(i)
                 } else {
                     None
                 }
             }))
-            .collect::<Vec<_>>();
+            .enumerate()
+            .for_each(|(i, value)| {
+                doc_start_index_slice[i] = value;
+            });
 
-        let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
+        let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx_mmap)?;
 
-        Ok(MultiFMIndex {
+        Ok(DiskMultiFMIndex {
             base_fm_index,
-            doc_start_index,
+            doc_start_index_mmap: doc_start_index_mmap
+                .make_read_only()
+                .map_err(PyOSError::new_err)?,
+            doc_start_index_file,
             doc_id_of_index,
+        })
+    }
+
+    pub(crate) fn try_clone(&self) -> PyResult<Self> {
+        let doc_start_index_file = tempfile().map_err(PyOSError::new_err)?;
+        doc_start_index_file
+            .set_len(self.doc_start_index_mmap.len() as u64)
+            .map_err(PyOSError::new_err)?;
+        #[allow(unsafe_code)]
+        let mut doc_start_index_mmap =
+            unsafe { MmapMut::map_mut(&doc_start_index_file).map_err(PyOSError::new_err)? };
+        doc_start_index_mmap.copy_from_slice(&self.doc_start_index_mmap[..]);
+        Ok(Self {
+            base_fm_index: self.base_fm_index.try_clone()?,
+            doc_start_index_mmap: doc_start_index_mmap
+                .make_read_only()
+                .map_err(PyOSError::new_err)?,
+            doc_start_index_file,
+            doc_id_of_index: self.doc_id_of_index.try_clone()?,
         })
     }
 }
 
-impl MultiFMIndexTrait for MultiFMIndex {
-    type BitVector = BitVector;
-    type WaveletMatrix = WaveletMatrix<usize>;
-    type BaseFMIndex = BaseFMIndex;
+impl MultiFMIndexTrait for DiskMultiFMIndex {
+    type BitVector = DiskBitVector;
+    type WaveletMatrix = DiskWaveletMatrix<usize>;
+    type BaseFMIndex = DiskBaseFMIndex;
 
     fn get_num_docs(&self) -> usize {
-        self.doc_start_index.len()
+        self.doc_start_index_mmap.len() / mem::size_of::<usize>()
     }
 
     fn get_base_fm_index(&self) -> &Self::BaseFMIndex {
@@ -79,7 +147,7 @@ impl MultiFMIndexTrait for MultiFMIndex {
     }
 
     fn get_doc_start_index(&self) -> &[usize] {
-        &self.doc_start_index
+        cast_slice(&self.doc_start_index_mmap[..])
     }
 
     fn get_doc_id_of_index(&self) -> &Self::WaveletMatrix {
@@ -95,12 +163,15 @@ mod tests {
 
     use super::*;
 
-    fn create_multi_fm_index(data: Vec<String>) -> MultiFMIndex {
+    fn create_multi_fm_index(data: Vec<String>) -> DiskMultiFMIndex {
         let data = data
             .iter()
             .flat_map(|doc| doc.chars().map(|c| c as u32 + 1).chain(iter::once(0)))
             .collect::<Vec<_>>();
-        MultiFMIndex::new(data).unwrap()
+        let mut data_mmap = MmapMut::map_anon(data.len() * std::mem::size_of::<u32>()).unwrap();
+        let data_slice: &mut [u32] = cast_slice_mut(&mut data_mmap[..]);
+        data_slice.copy_from_slice(&data[..]);
+        DiskMultiFMIndex::new(data_mmap.make_read_only().unwrap()).unwrap()
     }
 
     #[test]

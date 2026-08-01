@@ -1,6 +1,6 @@
 use num_traits::Zero;
 
-pub(crate) trait BitSelect {
+pub(in crate::utils) trait BitSelect {
     /// Select the position of the k-th set bit (1-based index).
     fn bit_select(&self, bit: bool, k: usize) -> Option<usize>;
 }
