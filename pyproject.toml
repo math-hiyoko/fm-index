@@ -48,6 +48,7 @@ test = [
     "numpy>=2.0.2",
     "pytest>=7.0",
     "pytest-benchmark>=4.0",
+    "pytest-monitor>=1.6",
 ]
 dev = [
     "pdoc>=16.0",
