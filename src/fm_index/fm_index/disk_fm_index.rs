@@ -14,7 +14,7 @@ pub(crate) struct DiskFMIndex {
 
 impl DiskFMIndex {
     pub(crate) fn new(data: Mmap) -> PyResult<Self> {
-        let (suffix_idx, _) = suffix_array_mmap(&data).map_err(PyOSError::new_err)?;
+        let (suffix_idx, _) = suffix_array_mmap(&data)?;
         let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx)?;
         Ok(Self { base_fm_index })
     }

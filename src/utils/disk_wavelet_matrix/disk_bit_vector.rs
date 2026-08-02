@@ -20,11 +20,11 @@ const SELECT_INDEX_INTERVAL: usize = 1 << 9;
 pub(crate) struct DiskBitVector {
     len: usize,
     ranks_mmap: Mmap,
-    ranks_file: fs::File,
+    _ranks_file: fs::File,
     blocks_mmap: Mmap,
-    blocks_file: fs::File,
+    _blocks_file: fs::File,
     select_index_mmap: [Mmap; 2],
-    select_index_file: [fs::File; 2],
+    _select_index_file: [fs::File; 2],
 }
 
 impl DiskBitVector {
@@ -41,15 +41,18 @@ impl DiskBitVector {
         let mut ranks_mmap =
             unsafe { MmapMut::map_mut(&ranks_file).map_err(PyOSError::new_err)? };
         let ranks_slice: &mut [usize] = cast_slice_mut(&mut ranks_mmap[..]);
-        for (index, rank) in iter::once(0usize)
-            .chain(blocks_slice.iter().scan(0usize, |acc, block| {
-                *acc += block.count_ones() as usize;
-                Some(*acc)
-            }))
-            .enumerate()
-        {
-            ranks_slice[index] = rank;
-        }
+        ranks_slice.copy_from_slice(
+            &iter::once(0)
+                .chain(
+                    blocks_slice
+                        .iter()
+                        .scan(0usize, |acc, block| {
+                            *acc += block.count_ones() as usize;
+                            Some(*acc)
+                        }),
+                )
+                .collect::<Vec<_>>(),
+        );
 
         let select_index_file = [
             {
@@ -107,9 +110,9 @@ impl DiskBitVector {
             ranks_mmap: ranks_mmap
                 .make_read_only()
                 .map_err(PyOSError::new_err)?,
-            ranks_file,
+            _ranks_file: ranks_file,
             blocks_mmap: blocks,
-            blocks_file,
+            _blocks_file: blocks_file,
             select_index_mmap: [
                 select_index_mmap_0
                     .make_read_only()
@@ -118,7 +121,7 @@ impl DiskBitVector {
                     .make_read_only()
                     .map_err(PyOSError::new_err)?,
             ],
-            select_index_file,
+            _select_index_file: select_index_file,
         })
     }
 
@@ -175,11 +178,11 @@ impl DiskBitVector {
             ranks_mmap: ranks_mmap
                 .make_read_only()
                 .map_err(PyOSError::new_err)?,
-            ranks_file,
+            _ranks_file: ranks_file,
             blocks_mmap: blocks_mmap
                 .make_read_only()
                 .map_err(PyOSError::new_err)?,
-            blocks_file,
+            _blocks_file: blocks_file,
             select_index_mmap: [
                 select_index_mmap_0
                     .make_read_only()
@@ -188,7 +191,7 @@ impl DiskBitVector {
                     .make_read_only()
                     .map_err(PyOSError::new_err)?,
             ],
-            select_index_file,
+            _select_index_file: select_index_file,
         })
     }
 }
@@ -297,19 +300,23 @@ mod tests {
         #[allow(unsafe_code)]
         let mut blocks_mmap = unsafe { MmapMut::map_mut(&blocks_file).unwrap() };
         let blocks_slice: &mut [BlockType] = cast_slice_mut(&mut blocks_mmap[..]);
-        for (index, chunk) in bits.chunks(BlockType::BITS as usize).enumerate() {
-            blocks_slice[index] =
-                chunk
-                    .iter()
-                    .enumerate()
-                    .fold(BlockType::zero(), |acc, (i, &b)| {
-                        if b {
-                            acc | (BlockType::one() << i)
-                        } else {
-                            acc
-                        }
-                    })
-        }
+        blocks_slice.copy_from_slice(
+            &bits
+                .chunks(BlockType::BITS as usize)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .enumerate()
+                        .fold(BlockType::zero(), |acc, (i, &b)| {
+                            if b {
+                                acc | (BlockType::one() << i)
+                            } else {
+                                acc
+                            }
+                        })
+                })
+                .collect::<Vec<_>>(),
+        );
 
         DiskBitVector::new(blocks_mmap.make_read_only().unwrap(), blocks_file, len).unwrap()
     }

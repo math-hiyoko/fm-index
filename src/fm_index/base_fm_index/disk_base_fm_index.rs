@@ -35,15 +35,19 @@ impl DiskBaseFMIndex {
 
         let suffix_idx_sampled_file = tempfile().map_err(PyOSError::new_err)?;
         suffix_idx_sampled_file
-            .set_len((suffix_idx.len() / ARRAY_SAMPLING_RATE * mem::size_of::<usize>()) as u64)
+            .set_len((suffix_idx.len().div_ceil(ARRAY_SAMPLING_RATE) * mem::size_of::<usize>()) as u64)
             .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
         let mut suffix_idx_sampled =
             unsafe { MmapMut::map_mut(&suffix_idx_sampled_file).map_err(PyOSError::new_err)? };
         let suffix_idx_sampled_slice = cast_slice_mut::<u8, usize>(&mut suffix_idx_sampled);
-        for (i, &idx) in suffix_idx.iter().step_by(ARRAY_SAMPLING_RATE).enumerate() {
-            suffix_idx_sampled_slice[i] = idx;
-        }
+        suffix_idx_sampled_slice.copy_from_slice(
+            &suffix_idx
+                .iter()
+                .step_by(ARRAY_SAMPLING_RATE)
+                .copied()
+                .collect::<Vec<_>>()
+        );
 
         let mut counts_less = collections::HashMap::new();
         for (cumulative_count, &idx) in suffix_idx.iter().enumerate() {

@@ -1,5 +1,3 @@
-use std::iter;
-
 use pyo3::{PyResult, exceptions::PyRuntimeError};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +13,7 @@ pub(crate) struct FMIndex {
 
 impl FMIndex {
     pub(crate) fn new(data: Vec<u32>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_vec(&data).map_err(PyRuntimeError::new_err)?;
+        let suffix_idx = suffix_array_vec(&data)?;
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
         Ok(FMIndex { base_fm_index })
     }
@@ -31,6 +29,8 @@ impl FMIndexTrait for FMIndex {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use num_traits::Zero;
 
     use super::*;

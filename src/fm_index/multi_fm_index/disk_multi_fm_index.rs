@@ -22,7 +22,7 @@ use crate::{
 pub(crate) struct DiskMultiFMIndex {
     base_fm_index: DiskBaseFMIndex,
     doc_start_index_mmap: Mmap,
-    doc_start_index_file: fs::File,
+    _doc_start_index_file: fs::File,
     doc_id_of_index: DiskWaveletMatrix<usize>,
 }
 
@@ -31,6 +31,7 @@ impl DiskMultiFMIndex {
         let data_slice = cast_slice::<u8, u32>(&data);
 
         let (suffix_idx_mmap, _) = suffix_array_mmap(&data)?;
+        let suffix_idx_slice = cast_slice::<u8, usize>(&suffix_idx_mmap);
 
         let doc_id_of_index = {
             let doc_ids_file = tempfile().map_err(PyOSError::new_err)?;
@@ -41,19 +42,18 @@ impl DiskMultiFMIndex {
             let mut doc_ids_mmap =
                 unsafe { MmapMut::map_mut(&doc_ids_file).map_err(PyOSError::new_err)? };
             let doc_ids_slice: &mut [usize] = cast_slice_mut(&mut doc_ids_mmap[..]);
-            data_slice
-                .iter()
-                .scan(0usize, |doc_id, &value| {
-                    let ret = *doc_id;
-                    if value.is_zero() {
-                        *doc_id += 1;
-                    }
-                    Some(ret)
-                })
-                .enumerate()
-                .for_each(|(i, doc_id)| {
-                    doc_ids_slice[i] = doc_id;
-                });
+            doc_ids_slice.copy_from_slice(
+                &data_slice
+                    .iter()
+                    .scan(0usize, |doc_id, &value| {
+                        let ret = *doc_id;
+                        if value.is_zero() {
+                            *doc_id += 1;
+                        }
+                        Some(ret)
+                    })
+                    .collect::<Vec<_>>()
+            );
 
             let doc_ids_of_suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
             doc_ids_of_suffix_idx_file
@@ -65,14 +65,12 @@ impl DiskMultiFMIndex {
             };
             let doc_ids_of_suffix_idx_slice: &mut [usize] =
                 cast_slice_mut(&mut doc_ids_of_suffix_idx_mmap[..]);
-            let suffix_idx_slice = cast_slice::<u8, usize>(&suffix_idx_mmap);
-            suffix_idx_slice
-                .iter()
-                .map(|&idx| doc_ids_slice[idx])
-                .enumerate()
-                .for_each(|(i, doc_id)| {
-                    doc_ids_of_suffix_idx_slice[i] = doc_id;
-                });
+            doc_ids_of_suffix_idx_slice.copy_from_slice(
+                &suffix_idx_slice
+                    .iter()
+                    .map(|&idx| doc_ids_slice[idx])
+                    .collect::<Vec<_>>()
+            );
 
             DiskWaveletMatrix::<usize>::new(doc_ids_of_suffix_idx_mmap, doc_ids_of_suffix_idx_file).map_err(PyOSError::new_err)?
         };
@@ -88,18 +86,17 @@ impl DiskMultiFMIndex {
         let mut doc_start_index_mmap =
             unsafe { MmapMut::map_mut(&doc_start_index_file).map_err(PyOSError::new_err)? };
         let doc_start_index_slice: &mut [usize] = cast_slice_mut(&mut doc_start_index_mmap[..]);
-        iter::once(0)
-            .chain(data_slice.iter().enumerate().filter_map(|(i, &value)| {
-                if value.is_zero() && i + 1 < data_slice.len() {
-                    Some(i)
-                } else {
-                    None
-                }
-            }))
-            .enumerate()
-            .for_each(|(i, value)| {
-                doc_start_index_slice[i] = value;
-            });
+        doc_start_index_slice.copy_from_slice(
+            &iter::once(0)
+                .chain(data_slice.iter().enumerate().filter_map(|(i, &value)| {
+                    if value.is_zero() && i + 1 < data_slice.len() {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                }))
+                .collect::<Vec<_>>()
+        );
 
         let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx_mmap)?;
 
@@ -108,7 +105,7 @@ impl DiskMultiFMIndex {
             doc_start_index_mmap: doc_start_index_mmap
                 .make_read_only()
                 .map_err(PyOSError::new_err)?,
-            doc_start_index_file,
+            _doc_start_index_file: doc_start_index_file,
             doc_id_of_index,
         })
     }
@@ -127,7 +124,7 @@ impl DiskMultiFMIndex {
             doc_start_index_mmap: doc_start_index_mmap
                 .make_read_only()
                 .map_err(PyOSError::new_err)?,
-            doc_start_index_file,
+            _doc_start_index_file: doc_start_index_file,
             doc_id_of_index: self.doc_id_of_index.try_clone()?,
         })
     }

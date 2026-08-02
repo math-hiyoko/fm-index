@@ -3,7 +3,7 @@ use std::{cmp, fs, iter, mem};
 
 use bytemuck::{cast_slice, cast_slice_mut};
 use memmap2::{Mmap, MmapMut};
-use pyo3::{PyResult, exceptions::PyRuntimeError};
+use pyo3::{PyResult, exceptions::PyOSError};
 use tempfile::tempfile;
 
 fn suffix_array_naive(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
@@ -11,13 +11,13 @@ fn suffix_array_naive(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
     let data_slice: &[u32] = cast_slice(&data[..]);
     let length = data_slice.len();
 
-    let suffix_idx_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
     suffix_idx_file
         .set_len((length * mem::size_of::<usize>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut suffix_idx =
-        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyRuntimeError::new_err)? };
+        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyOSError::new_err)? };
     let suffix_idx_slice: &mut [usize] = cast_slice_mut(&mut suffix_idx[..]);
     suffix_idx_slice.copy_from_slice(&(0..length).collect::<Vec<_>>());
 
@@ -44,7 +44,7 @@ fn suffix_array_naive(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
     Ok((
         suffix_idx
             .make_read_only()
-            .map_err(PyRuntimeError::new_err)?,
+            .map_err(PyOSError::new_err)?,
         suffix_idx_file,
     ))
 }
@@ -54,32 +54,32 @@ fn suffix_array_doubling(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
     let data_slice: &[u32] = cast_slice(&data[..]);
     let length = data_slice.len();
 
-    let suffix_idx_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
     suffix_idx_file
         .set_len((length * mem::size_of::<usize>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut suffix_idx =
-        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyRuntimeError::new_err)? };
+        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyOSError::new_err)? };
     let suffix_idx_slice: &mut [usize] = cast_slice_mut(&mut suffix_idx[..]);
     suffix_idx_slice.copy_from_slice(&(0..length).collect::<Vec<_>>());
 
-    let rank_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let rank_file = tempfile().map_err(PyOSError::new_err)?;
     rank_file
         .set_len((length * mem::size_of::<u32>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
-    let mut rank = unsafe { MmapMut::map_mut(&rank_file).map_err(PyRuntimeError::new_err)? };
+    let mut rank = unsafe { MmapMut::map_mut(&rank_file).map_err(PyOSError::new_err)? };
     let mut rank_slice: &mut [u32] = cast_slice_mut(&mut rank[..]);
     rank_slice.copy_from_slice(&data_slice[..]);
 
-    let next_rank_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let next_rank_file = tempfile().map_err(PyOSError::new_err)?;
     next_rank_file
         .set_len((length * mem::size_of::<u32>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut next_rank =
-        unsafe { MmapMut::map_mut(&next_rank_file).map_err(PyRuntimeError::new_err)? };
+        unsafe { MmapMut::map_mut(&next_rank_file).map_err(PyOSError::new_err)? };
 
     let mut prefix_len = 1;
 
@@ -122,203 +122,196 @@ fn suffix_array_doubling(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
     Ok((
         suffix_idx
             .make_read_only()
-            .map_err(PyRuntimeError::new_err)?,
+            .map_err(PyOSError::new_err)?,
         suffix_idx_file,
     ))
 }
 
 fn suffix_array_induced_sorting(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::File)> {
     assert!(data.len().is_multiple_of(mem::size_of::<u32>()));
-    let data: &[u32] = cast_slice(&data[..]);
-    let length = data.len();
+    let data_slice: &[u32] = cast_slice(&data[..]);
+    let length = data_slice.len();
 
-    let suffix_idx_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
     suffix_idx_file
         .set_len((length * mem::size_of::<usize>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut suffix_idx =
-        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyRuntimeError::new_err)? };
-    let mut suffix_idx_data: &mut [usize] = cast_slice_mut(&mut suffix_idx[..]);
+        unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyOSError::new_err)? };
+    let mut suffix_idx_slice: &mut [usize] = cast_slice_mut(&mut suffix_idx[..]);
 
-    let is_s_type_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let is_s_type_file = tempfile().map_err(PyOSError::new_err)?;
     is_s_type_file
-        .set_len(length as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .set_len((length * mem::size_of::<u8>()) as u64)
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut is_s_type =
-        unsafe { MmapMut::map_mut(&is_s_type_file).map_err(PyRuntimeError::new_err)? };
-    let is_s_type_data: &mut [u8] = cast_slice_mut(&mut is_s_type[..]);
+        unsafe { MmapMut::map_mut(&is_s_type_file).map_err(PyOSError::new_err)? };
+    let is_s_type_slice: &mut [u8] = cast_slice_mut(&mut is_s_type[..]);
     for i in (0..length - 1).rev() {
-        is_s_type_data[i] = if data[i] == data[i + 1] {
-            is_s_type_data[i + 1]
+        is_s_type_slice[i] = if data_slice[i] == data_slice[i + 1] {
+            is_s_type_slice[i + 1]
         } else {
-            (data[i] < data[i + 1]) as u8
+            (data_slice[i] < data_slice[i + 1]) as u8
         };
     }
 
-    let bucket_l_start_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let bucket_l_start_file = tempfile().map_err(PyOSError::new_err)?;
     bucket_l_start_file
         .set_len((alphabet_max + 1) as u64 * mem::size_of::<usize>() as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut bucket_l_start =
-        unsafe { MmapMut::map_mut(&bucket_l_start_file).map_err(PyRuntimeError::new_err)? };
-    let bucket_l_start_data: &mut [usize] = cast_slice_mut(&mut bucket_l_start[..]);
+        unsafe { MmapMut::map_mut(&bucket_l_start_file).map_err(PyOSError::new_err)? };
+    let bucket_l_start_slice: &mut [usize] = cast_slice_mut(&mut bucket_l_start[..]);
 
-    let bucket_s_start_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let bucket_s_start_file = tempfile().map_err(PyOSError::new_err)?;
     bucket_s_start_file
         .set_len((alphabet_max + 1) as u64 * mem::size_of::<usize>() as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut bucket_s_start =
-        unsafe { MmapMut::map_mut(&bucket_s_start_file).map_err(PyRuntimeError::new_err)? };
-    let bucket_s_start_data: &mut [usize] = cast_slice_mut(&mut bucket_s_start[..]);
+        unsafe { MmapMut::map_mut(&bucket_s_start_file).map_err(PyOSError::new_err)? };
+    let bucket_s_start_slice: &mut [usize] = cast_slice_mut(&mut bucket_s_start[..]);
 
-    for (&mut is_s_type, &data) in iter::zip(is_s_type_data, data) {
+    for (&is_s_type, &data) in iter::zip(is_s_type_slice.iter(), data_slice) {
         if is_s_type != 0 {
-            bucket_l_start_data[data as usize + 1] += 1;
+            bucket_l_start_slice[data as usize + 1] += 1;
         } else {
-            bucket_s_start_data[data as usize] += 1;
+            bucket_s_start_slice[data as usize] += 1;
         }
     }
     for i in 0..=alphabet_max as usize {
-        bucket_s_start_data[i] += bucket_l_start_data[i];
+        bucket_s_start_slice[i] += bucket_l_start_slice[i];
         if i < alphabet_max as usize {
-            bucket_l_start_data[i + 1] += bucket_s_start_data[i];
+            bucket_l_start_slice[i + 1] += bucket_s_start_slice[i];
         }
     }
 
-    let bucket_cursor_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let bucket_cursor_file = tempfile().map_err(PyOSError::new_err)?;
     bucket_cursor_file
         .set_len((alphabet_max + 1) as u64 * mem::size_of::<usize>() as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut bucket_cursor =
-        unsafe { MmapMut::map_mut(&bucket_cursor_file).map_err(PyRuntimeError::new_err)? };
-    let mut bucket_cursor_data: &mut [usize] = cast_slice_mut(&mut bucket_cursor[..]);
+        unsafe { MmapMut::map_mut(&bucket_cursor_file).map_err(PyOSError::new_err)? };
+    let mut bucket_cursor_slice: &mut [usize] = cast_slice_mut(&mut bucket_cursor[..]);
 
     // suffix array's origin is +1
     let induced_sort =
         |suffix_idx: &mut [usize], bucket_cursor: &mut [usize], lms_positions: &[usize]| {
             suffix_idx.fill(0);
-            bucket_cursor.copy_from_slice(&bucket_s_start_data);
+            bucket_cursor.copy_from_slice(&bucket_s_start_slice);
             for &lms_pos in lms_positions {
                 if lms_pos == length {
                     continue;
                 }
-                let pos = bucket_cursor[data[lms_pos] as usize];
-                bucket_cursor[data[lms_pos] as usize] += 1;
+                let pos = bucket_cursor[data_slice[lms_pos] as usize];
+                bucket_cursor[data_slice[lms_pos] as usize] += 1;
                 suffix_idx[pos] = lms_pos + 1;
             }
-            bucket_cursor.copy_from_slice(&bucket_l_start_data);
-            let pos = bucket_cursor[data[length - 1] as usize];
-            bucket_cursor[data[length - 1] as usize] += 1;
+            bucket_cursor.copy_from_slice(&bucket_l_start_slice);
+            let pos = bucket_cursor[data_slice[length - 1] as usize];
+            bucket_cursor[data_slice[length - 1] as usize] += 1;
             suffix_idx[pos] = length;
             for i in 0..length {
                 let sa_value = suffix_idx[i];
-                if sa_value > 1 && is_s_type[sa_value - 2] == 0 {
-                    let old = bucket_cursor[data[sa_value - 2] as usize];
-                    bucket_cursor[data[sa_value - 2] as usize] += 1;
+                if sa_value > 1 && is_s_type_slice[sa_value - 2] == 0 {
+                    let old = bucket_cursor[data_slice[sa_value - 2] as usize];
+                    bucket_cursor[data_slice[sa_value - 2] as usize] += 1;
                     suffix_idx[old] = sa_value - 1;
                 }
             }
-            bucket_cursor.copy_from_slice(&bucket_l_start_data);
+            bucket_cursor.copy_from_slice(&bucket_l_start_slice);
             for i in (0..length).rev() {
                 let sa_value = suffix_idx[i];
-                if sa_value > 1 && is_s_type[sa_value - 2] != 0 {
-                    bucket_cursor[data[sa_value - 2] as usize + 1] -= 1;
-                    let pos = bucket_cursor[data[sa_value - 2] as usize + 1];
+                if sa_value > 1 && is_s_type_slice[sa_value - 2] != 0 {
+                    bucket_cursor[data_slice[sa_value - 2] as usize + 1] -= 1;
+                    let pos = bucket_cursor[data_slice[sa_value - 2] as usize + 1];
                     suffix_idx[pos] = sa_value - 1;
                 }
             }
         };
 
     // origin of lms_index is +1
-    let lms_index_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let lms_index_file = tempfile().map_err(PyOSError::new_err)?;
     lms_index_file
         .set_len(((length + 1) * mem::size_of::<usize>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut lms_index =
-        unsafe { MmapMut::map_mut(&lms_index_file).map_err(PyRuntimeError::new_err)? };
-    let lms_index_data: &mut [usize] = cast_slice_mut(&mut lms_index[..]);
+        unsafe { MmapMut::map_mut(&lms_index_file).map_err(PyOSError::new_err)? };
+    let lms_index_slice: &mut [usize] = cast_slice_mut(&mut lms_index[..]);
 
     let mut num_lms = 0usize;
     for i in 1..length {
-        if is_s_type[i - 1] == 0 && is_s_type[i] != 0 {
-            lms_index_data[i] = num_lms + 1;
+        if is_s_type_slice[i - 1] == 0 && is_s_type_slice[i] != 0 {
+            lms_index_slice[i] = num_lms + 1;
             num_lms += 1;
         }
     }
 
-    let lms_positions_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let lms_positions_file = tempfile().map_err(PyOSError::new_err)?;
     lms_positions_file
         .set_len((num_lms * mem::size_of::<usize>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
     let mut lms_positions =
-        unsafe { MmapMut::map_mut(&lms_positions_file).map_err(PyRuntimeError::new_err)? };
-    let lms_positions_data: &mut [usize] = cast_slice_mut(&mut lms_positions[..]);
-    for (j, i) in (1..length)
-        .filter(|&i| is_s_type[i - 1] == 0 && is_s_type[i] != 0)
-        .enumerate()
-    {
-        lms_positions_data[j] = i;
-    }
+        unsafe { MmapMut::map_mut(&lms_positions_file).map_err(PyOSError::new_err)? };
+    let lms_positions_slice: &mut [usize] = cast_slice_mut(&mut lms_positions[..]);
+    lms_positions_slice.copy_from_slice(
+        &(1..length)
+            .filter(|&i| is_s_type_slice[i - 1] == 0 && is_s_type_slice[i] != 0)
+            .collect::<Vec<usize>>()
+    );
 
     induced_sort(
-        &mut suffix_idx_data,
-        &mut bucket_cursor_data,
-        &lms_positions_data,
+        &mut suffix_idx_slice,
+        &mut bucket_cursor_slice,
+        &lms_positions_slice,
     );
 
     if num_lms > 0 {
-        let sorted_lms_positions_file = tempfile().map_err(PyRuntimeError::new_err)?;
+        let sorted_lms_positions_file = tempfile().map_err(PyOSError::new_err)?;
         sorted_lms_positions_file
             .set_len((num_lms * mem::size_of::<usize>()) as u64)
-            .map_err(PyRuntimeError::new_err)?;
+            .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
         let mut sorted_lms_positions = unsafe {
-            MmapMut::map_mut(&sorted_lms_positions_file).map_err(PyRuntimeError::new_err)?
+            MmapMut::map_mut(&sorted_lms_positions_file).map_err(PyOSError::new_err)?
         };
-        let sorted_lms_positions_data: &mut [usize] = cast_slice_mut(&mut sorted_lms_positions[..]);
-        for (j, i) in suffix_idx_data
-            .iter()
-            .filter_map(|&sa_value| {
-                if lms_index_data[sa_value - 1] > 0 {
-                    Some(sa_value - 1)
-                } else {
-                    None
-                }
-            })
-            .enumerate()
-        {
-            sorted_lms_positions_data[j] = i;
-        }
+        let sorted_lms_positions_slice: &mut [usize] = cast_slice_mut(&mut sorted_lms_positions[..]);
+        sorted_lms_positions_slice.copy_from_slice(
+            &suffix_idx_slice
+                .iter()
+                .filter(|&&sa_value| lms_index_slice[sa_value - 1] > 0)
+                .map(|&sa_value| sa_value - 1)
+                .collect::<Vec<_>>()
+        );
 
-        let reduced_data_file = tempfile().map_err(PyRuntimeError::new_err)?;
+        let reduced_data_file = tempfile().map_err(PyOSError::new_err)?;
         reduced_data_file
             .set_len((num_lms * mem::size_of::<u32>()) as u64)
-            .map_err(PyRuntimeError::new_err)?;
+            .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
         let mut reduced_data =
-            unsafe { MmapMut::map_mut(&reduced_data_file).map_err(PyRuntimeError::new_err)? };
-        let reduced_data_data: &mut [u32] = cast_slice_mut(&mut reduced_data[..]);
+            unsafe { MmapMut::map_mut(&reduced_data_file).map_err(PyOSError::new_err)? };
+        let reduced_data_slice: &mut [u32] = cast_slice_mut(&mut reduced_data[..]);
 
         let mut reduced_alphabet_max = 0;
-        reduced_data_data[lms_index_data[sorted_lms_positions_data[0]] - 1] = 0;
+        reduced_data_slice[lms_index_slice[sorted_lms_positions_slice[0]] - 1] = 0;
 
         for i in 1..num_lms {
-            let mut prev_pos = sorted_lms_positions_data[i - 1];
-            let mut curr_pos = sorted_lms_positions_data[i];
-            let prev_end = if lms_index_data[prev_pos] < num_lms {
-                lms_positions_data[lms_index_data[prev_pos]]
+            let mut prev_pos = sorted_lms_positions_slice[i - 1];
+            let mut curr_pos = sorted_lms_positions_slice[i];
+            let prev_end = if lms_index_slice[prev_pos] < num_lms {
+                lms_positions_slice[lms_index_slice[prev_pos]]
             } else {
                 length
             };
-            let curr_end = if lms_index_data[curr_pos] < num_lms {
-                lms_positions_data[lms_index_data[curr_pos]]
+            let curr_end = if lms_index_slice[curr_pos] < num_lms {
+                lms_positions_slice[lms_index_slice[curr_pos]]
             } else {
                 length
             };
@@ -326,44 +319,44 @@ fn suffix_array_induced_sorting(data: &Mmap, alphabet_max: u32) -> PyResult<(Mma
             let is_same_lms_substring = if prev_end - prev_pos != curr_end - curr_pos {
                 false
             } else {
-                while prev_pos < prev_end && data[prev_pos] == data[curr_pos] {
+                while prev_pos < prev_end && data_slice[prev_pos] == data_slice[curr_pos] {
                     prev_pos += 1;
                     curr_pos += 1;
                 }
-                prev_pos != length && data[prev_pos] == data[curr_pos]
+                prev_pos != length && data_slice[prev_pos] == data_slice[curr_pos]
             };
 
             if !is_same_lms_substring {
                 reduced_alphabet_max += 1;
             }
-            reduced_data_data[lms_index_data[sorted_lms_positions_data[i]] - 1] =
+            reduced_data_slice[lms_index_slice[sorted_lms_positions_slice[i]] - 1] =
                 reduced_alphabet_max;
         }
 
         let (reduced_suffix_array, _) = suffix_array_inner(
             &reduced_data
                 .make_read_only()
-                .map_err(PyRuntimeError::new_err)?,
+                .map_err(PyOSError::new_err)?,
             reduced_alphabet_max,
         )?;
-        let reduced_suffix_array_data: &[u32] = cast_slice(&reduced_suffix_array[..]);
-        for (i, &reduced_sa_value) in reduced_suffix_array_data.into_iter().enumerate() {
-            sorted_lms_positions_data[i] = lms_positions_data[reduced_sa_value as usize];
+        let reduced_suffix_array_slice: &[usize] = cast_slice(&reduced_suffix_array[..]);
+        for (i, &reduced_sa_value) in reduced_suffix_array_slice.iter().enumerate() {
+            sorted_lms_positions_slice[i] = lms_positions_slice[reduced_sa_value];
         }
 
         induced_sort(
-            &mut suffix_idx_data,
-            &mut bucket_cursor_data,
-            &sorted_lms_positions_data,
+            &mut suffix_idx_slice,
+            &mut bucket_cursor_slice,
+            &sorted_lms_positions_slice,
         );
     }
-    for x in &mut suffix_idx_data[..] {
+    for x in &mut suffix_idx_slice[..] {
         *x -= 1;
     }
     Ok((
         suffix_idx
             .make_read_only()
-            .map_err(PyRuntimeError::new_err)?,
+            .map_err(PyOSError::new_err)?,
         suffix_idx_file,
     ))
 }
@@ -373,19 +366,19 @@ fn suffix_array_inner(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::Fil
 
     match length {
         0..3 => {
-            let suffix_idx_file = tempfile().map_err(PyRuntimeError::new_err)?;
+            let suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
             suffix_idx_file
                 .set_len((length * mem::size_of::<usize>()) as u64)
-                .map_err(PyRuntimeError::new_err)?;
+                .map_err(PyOSError::new_err)?;
             #[allow(unsafe_code)]
             let mut suffix_idx =
-                unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyRuntimeError::new_err)? };
+                unsafe { MmapMut::map_mut(&suffix_idx_file).map_err(PyOSError::new_err)? };
             let suffix_idx_data: &mut [usize] = cast_slice_mut(&mut suffix_idx[..]);
             match length {
                 0 => Ok((
                     suffix_idx
                         .make_read_only()
-                        .map_err(PyRuntimeError::new_err)?,
+                        .map_err(PyOSError::new_err)?,
                     suffix_idx_file,
                 )),
                 1 => {
@@ -393,7 +386,7 @@ fn suffix_array_inner(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::Fil
                     Ok((
                         suffix_idx
                             .make_read_only()
-                            .map_err(PyRuntimeError::new_err)?,
+                            .map_err(PyOSError::new_err)?,
                         suffix_idx_file,
                     ))
                 }
@@ -407,7 +400,7 @@ fn suffix_array_inner(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::Fil
                     Ok((
                         suffix_idx
                             .make_read_only()
-                            .map_err(PyRuntimeError::new_err)?,
+                            .map_err(PyOSError::new_err)?,
                         suffix_idx_file,
                     ))
                 }
@@ -421,12 +414,12 @@ fn suffix_array_inner(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::Fil
 }
 
 pub(crate) fn suffix_array_vec(data: &Vec<u32>) -> PyResult<Vec<usize>> {
-    let data_file = tempfile().map_err(PyRuntimeError::new_err)?;
+    let data_file = tempfile().map_err(PyOSError::new_err)?;
     data_file
         .set_len((data.len() * mem::size_of::<u32>()) as u64)
-        .map_err(PyRuntimeError::new_err)?;
+        .map_err(PyOSError::new_err)?;
     #[allow(unsafe_code)]
-    let mut data_mmap = unsafe { MmapMut::map_mut(&data_file).map_err(PyRuntimeError::new_err)? };
+    let mut data_mmap = unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
     let data_mmap_data: &mut [u32] = cast_slice_mut(&mut data_mmap[..]);
     data_mmap_data.copy_from_slice(data.as_slice());
 
@@ -435,7 +428,7 @@ pub(crate) fn suffix_array_vec(data: &Vec<u32>) -> PyResult<Vec<usize>> {
     let (result_mmap, _) = suffix_array_inner(
         &data_mmap
             .make_read_only()
-            .map_err(PyRuntimeError::new_err)?,
+            .map_err(PyOSError::new_err)?,
         alphabet_max,
     )?;
     Ok(cast_slice::<u8, usize>(&result_mmap[..])
