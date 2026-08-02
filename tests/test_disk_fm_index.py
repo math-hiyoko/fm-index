@@ -7,22 +7,22 @@ from fm_index import FMIndex
 
 @pytest.fixture
 def fm_index_empty():
-    return FMIndex("")
+    return FMIndex("", on_disk=True)
 
 
 @pytest.fixture
 def fm_index_ucs1():
-    return FMIndex("mississippi")
+    return FMIndex("mississippi", on_disk=True)
 
 
 @pytest.fixture
 def fm_index_ucs2():
-    return FMIndex("にわにはにわにわとりがいる")
+    return FMIndex("にわにはにわにわとりがいる", on_disk=True)
 
 
 @pytest.fixture
 def fm_index_ucs4():
-    return FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")
+    return FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊", on_disk=True)
 
 
 def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
@@ -33,10 +33,10 @@ def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 
 def test_str(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
-    assert str(fm_index_empty) == "FMIndex(len=0, max_bit=0, on_disk=False)"
-    assert str(fm_index_ucs1) == "FMIndex(len=11, max_bit=7, on_disk=False)"
-    assert str(fm_index_ucs2) == "FMIndex(len=13, max_bit=14, on_disk=False)"
-    assert str(fm_index_ucs4) == "FMIndex(len=15, max_bit=17, on_disk=False)"
+    assert str(fm_index_empty) == "FMIndex(len=0, max_bit=0, on_disk=True)"
+    assert str(fm_index_ucs1) == "FMIndex(len=11, max_bit=7, on_disk=True)"
+    assert str(fm_index_ucs2) == "FMIndex(len=13, max_bit=14, on_disk=True)"
+    assert str(fm_index_ucs4) == "FMIndex(len=15, max_bit=17, on_disk=True)"
 
 
 def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
@@ -103,7 +103,7 @@ def test_endswith(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 def test_large():
     large_text = ("mississippi" + "にわにはにわにわとりがいる" + "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊") * 1000
-    fm_index_large = FMIndex(large_text)
+    fm_index_large = FMIndex(large_text, on_disk=True)
 
     for pattern in ["miss", "にわに", "🏰🐉🔥"]:
         assert fm_index_large.count(pattern) == large_text.count(pattern)
@@ -112,48 +112,24 @@ def test_large():
 
 
 def test_pickle_empty():
-    fm_index = FMIndex("")
-    pickled = pickle.dumps(fm_index)
-    unpickled = pickle.loads(pickled)
-
-    assert len(unpickled) == 0
-    assert unpickled.item() == ""
-    assert str(unpickled) == "FMIndex(len=0, max_bit=0, on_disk=False)"
+    fm_index = FMIndex("", on_disk=True)
+    with pytest.raises(TypeError):
+        pickle.dumps(fm_index)
 
 
 def test_pickle_ucs1():
-    fm_index = FMIndex("mississippi")
-    pickled = pickle.dumps(fm_index)
-    unpickled = pickle.loads(pickled)
-
-    assert len(unpickled) == 11
-    assert unpickled.item() == "mississippi"
-    assert str(unpickled) == "FMIndex(len=11, max_bit=7, on_disk=False)"
-    assert unpickled.count("issi") == 2
-    assert unpickled.locate("issi") == [4, 1]
-    assert unpickled.startswith("mis")
-    assert unpickled.endswith("ppi")
+    fm_index = FMIndex("mississippi", on_disk=True)
+    with pytest.raises(TypeError):
+        pickle.dumps(fm_index)
 
 
 def test_pickle_ucs2():
-    fm_index = FMIndex("にわにはにわにわとりがいる")
-    pickled = pickle.dumps(fm_index)
-    unpickled = pickle.loads(pickled)
-
-    assert len(unpickled) == 13
-    assert unpickled.item() == "にわにはにわにわとりがいる"
-    assert str(unpickled) == "FMIndex(len=13, max_bit=14, on_disk=False)"
-    assert unpickled.count("にわ") == 3
-    assert unpickled.locate("にわ") == [6, 0, 4]
+    fm_index = FMIndex("にわにはにわにわとりがいる", on_disk=True)
+    with pytest.raises(TypeError):
+        pickle.dumps(fm_index)
 
 
 def test_pickle_ucs4():
-    fm_index = FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊")
-    pickled = pickle.dumps(fm_index)
-    unpickled = pickle.loads(pickled)
-
-    assert len(unpickled) == 15
-    assert unpickled.item() == "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
-    assert str(unpickled) == "FMIndex(len=15, max_bit=17, on_disk=False)"
-    assert unpickled.count("🐉🔥🌊") == 3
-    assert unpickled.locate("🐉🔥🌊") == [12, 6, 1]
+    fm_index = FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊", on_disk=True)
+    with pytest.raises(TypeError):
+        pickle.dumps(fm_index)

@@ -8,13 +8,15 @@ use pyo3::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::utils::bit_select::BitSelect;
+use crate::utils::traits::{
+    bit_select::BitSelect,
+    bit_vector::{BitVectorTrait, BlockType},
+};
 
-pub(super) type BlockType = u128;
-const SELECT_INDEX_INTERBVAL: usize = 1 << 14;
+const SELECT_INDEX_INTERVAL: usize = 1 << 9;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(super) struct BitVector {
+pub(crate) struct BitVector {
     len: usize,
     blocks: Vec<BlockType>,
     ranks: Vec<usize>,
@@ -22,7 +24,7 @@ pub(super) struct BitVector {
 }
 
 impl BitVector {
-    pub(super) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
+    pub(crate) fn new(blocks: Vec<BlockType>, len: usize) -> PyResult<Self> {
         // Build the rank index structure.
         let ranks: Vec<usize> = iter::once(0usize)
             .chain(blocks.iter().scan(0usize, |acc, block| {
@@ -32,18 +34,24 @@ impl BitVector {
             .collect();
 
         let mut select_index = [
-            Vec::with_capacity((len - ranks.last().unwrap()) / SELECT_INDEX_INTERBVAL + 1),
-            Vec::with_capacity((ranks.last().unwrap() / SELECT_INDEX_INTERBVAL) + 1),
+            Vec::with_capacity((len - ranks.last().unwrap()) / SELECT_INDEX_INTERVAL + 2),
+            Vec::with_capacity((ranks.last().unwrap() / SELECT_INDEX_INTERVAL) + 2),
         ];
         for select_index_inner in select_index.iter_mut() {
             select_index_inner.push(0);
         }
         let mut count = [0usize, 0usize];
-        for index in 0..len {
-            let (block_index, bit_index) = index.div_rem(&(BlockType::BITS as usize));
-            let bit = ((blocks[block_index] >> bit_index) & BlockType::one()).is_one() as usize;
+        for (index, bit) in blocks
+            .iter()
+            .flat_map(|block| {
+                (0..BlockType::BITS as usize)
+                    .map(move |i| ((block >> i) & BlockType::one()) as usize)
+            })
+            .take(len)
+            .enumerate()
+        {
             count[bit] += 1;
-            if count[bit].is_multiple_of(SELECT_INDEX_INTERBVAL) {
+            if count[bit].is_multiple_of(SELECT_INDEX_INTERVAL) {
                 select_index[bit].push(index);
             }
         }
@@ -58,9 +66,16 @@ impl BitVector {
             select_index,
         })
     }
+}
+
+impl BitVectorTrait for BitVector {
+    #[inline]
+    fn values(&self) -> PyResult<Vec<BlockType>> {
+        Ok(self.blocks.clone())
+    }
 
     #[inline]
-    pub(super) fn access(&self, index: usize) -> PyResult<bool> {
+    fn access(&self, index: usize) -> PyResult<bool> {
         if index >= self.len {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
@@ -69,12 +84,7 @@ impl BitVector {
     }
 
     #[inline]
-    pub(super) fn values(&self) -> PyResult<Vec<BlockType>> {
-        Ok(self.blocks.clone())
-    }
-
-    #[inline]
-    pub(super) fn rank(&self, bit: bool, end: usize) -> PyResult<usize> {
+    fn rank(&self, bit: bool, end: usize) -> PyResult<usize> {
         if end > self.len {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
@@ -96,7 +106,7 @@ impl BitVector {
     }
 
     #[inline]
-    pub(super) fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
+    fn select(&self, bit: bool, mut kth: usize) -> PyResult<Option<usize>> {
         if kth.is_zero() {
             return Err(PyValueError::new_err("kth must be greater than 0"));
         }
@@ -105,9 +115,9 @@ impl BitVector {
         }
 
         let block_index = {
-            let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERBVAL]
+            let mut left = self.select_index[bit as usize][(kth - 1) / SELECT_INDEX_INTERVAL]
                 / (BlockType::BITS as usize);
-            let mut right = self.select_index[bit as usize][kth / SELECT_INDEX_INTERBVAL + 1]
+            let mut right = self.select_index[bit as usize][kth / SELECT_INDEX_INTERVAL + 1]
                 .div_ceil(BlockType::BITS as usize);
             debug_assert!(right <= self.blocks.len());
             while left + 1 < right {
