@@ -31,14 +31,14 @@ def random_data(size: tuple[int, int], ucs: Literal["ucs1", "ucs2", "ucs4"]) -> 
 
 @pytest.fixture
 def random_multi_fm_index(random_data: str) -> MultiFMIndex:
-    return MultiFMIndex(random_data, on_disk=True)
+    return MultiFMIndex(random_data)
 
 
 @pytest.mark.parametrize("size", [(100, 100), (1000, 100), (100, 1000)])
 @pytest.mark.parametrize("ucs", ["ucs1", "ucs2", "ucs4"])
 class BenchMultiFMIndex:
     def bench_multi_construction(self, benchmark, random_data):
-        benchmark(MultiFMIndex, random_data, on_disk=True)
+        benchmark(MultiFMIndex, random_data)
 
     def bench_multi_item(self, benchmark, random_multi_fm_index):
         benchmark(random_multi_fm_index.item)
