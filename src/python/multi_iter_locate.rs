@@ -22,7 +22,9 @@ impl IterLocate {
     ) -> PyResult<Self> {
         let (mut start, end) = match &multi_fm_index {
             MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.range_search(pattern)?,
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.range_search(pattern)?,
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.range_search(pattern)?
+            }
         };
         if let Some(doc_id) = doc_id {
             match &multi_fm_index {
@@ -40,7 +42,9 @@ impl IterLocate {
                     if doc_id >= disk_multi_fm_index.get_num_docs() {
                         return Err(PyValueError::new_err("doc_id is out of bounds"));
                     }
-                    let rank = disk_multi_fm_index.get_doc_id_of_index().rank(doc_id, start)?;
+                    let rank = disk_multi_fm_index
+                        .get_doc_id_of_index()
+                        .rank(doc_id, start)?;
                     start = disk_multi_fm_index
                         .get_doc_id_of_index()
                         .select(doc_id, rank + 1)?
@@ -75,14 +79,14 @@ impl IterLocate {
                     Some(_) => offset.into_pyobject(py)?.unbind().into(),
                     None => (doc_id, offset).into_pyobject(py)?.unbind().into(),
                 }
-            },
+            }
             MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
                 let (doc_id, offset) = py.detach(|| disk_multi_fm_index.doc_offset(k))?;
                 match slf.doc_id {
                     Some(_) => offset.into_pyobject(py)?.unbind().into(),
                     None => (doc_id, offset).into_pyobject(py)?.unbind().into(),
                 }
-            },
+            }
         };
         slf.k = match slf.doc_id {
             Some(doc_id) => {
@@ -94,7 +98,9 @@ impl IterLocate {
                             .select(doc_id, rank + 1)
                     })?,
                     MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => py.detach(|| {
-                        let rank = disk_multi_fm_index.get_doc_id_of_index().rank(doc_id, k + 1)?;
+                        let rank = disk_multi_fm_index
+                            .get_doc_id_of_index()
+                            .rank(doc_id, k + 1)?;
                         disk_multi_fm_index
                             .get_doc_id_of_index()
                             .select(doc_id, rank + 1)

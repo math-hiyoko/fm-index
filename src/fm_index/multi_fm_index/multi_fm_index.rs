@@ -1,5 +1,3 @@
-use std::iter;
-
 use num_traits::Zero;
 use pyo3::PyResult;
 use serde::{Deserialize, Serialize};
@@ -45,10 +43,12 @@ impl MultiFMIndex {
             )?
         };
 
-        let doc_start_index = iter::once(0)
+        let doc_start_index = (!data.is_empty())
+            .then_some(0)
+            .into_iter()
             .chain(data.iter().enumerate().filter_map(|(i, &value)| {
                 if value.is_zero() && i + 1 < data.len() {
-                    Some(i)
+                    Some(i + 1)
                 } else {
                     None
                 }
@@ -89,6 +89,8 @@ impl MultiFMIndexTrait for MultiFMIndex {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use num_traits::Zero;
     use pyo3::Python;
     use std::collections;

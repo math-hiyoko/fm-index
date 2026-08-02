@@ -1,4 +1,4 @@
-use std::{fs, iter, mem};
+use std::{fs, mem};
 
 use bytemuck::{cast_slice, cast_slice_mut};
 use memmap2::{Mmap, MmapMut};
@@ -36,7 +36,7 @@ impl DiskMultiFMIndex {
         let doc_id_of_index = {
             let doc_ids_file = tempfile().map_err(PyOSError::new_err)?;
             doc_ids_file
-                .set_len((data.len() / mem::size_of::<u32>()) as u64)
+                .set_len((data_slice.len() * mem::size_of::<usize>()) as u64)
                 .map_err(PyOSError::new_err)?;
             #[allow(unsafe_code)]
             let mut doc_ids_mmap =
@@ -52,12 +52,12 @@ impl DiskMultiFMIndex {
                         }
                         Some(ret)
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
             );
 
             let doc_ids_of_suffix_idx_file = tempfile().map_err(PyOSError::new_err)?;
             doc_ids_of_suffix_idx_file
-                .set_len((suffix_idx_mmap.len() / mem::size_of::<usize>()) as u64)
+                .set_len(mem::size_of_val(suffix_idx_slice) as u64)
                 .map_err(PyOSError::new_err)?;
             #[allow(unsafe_code)]
             let mut doc_ids_of_suffix_idx_mmap = unsafe {
@@ -69,10 +69,11 @@ impl DiskMultiFMIndex {
                 &suffix_idx_slice
                     .iter()
                     .map(|&idx| doc_ids_slice[idx])
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
             );
 
-            DiskWaveletMatrix::<usize>::new(doc_ids_of_suffix_idx_mmap, doc_ids_of_suffix_idx_file).map_err(PyOSError::new_err)?
+            DiskWaveletMatrix::<usize>::new(doc_ids_of_suffix_idx_mmap, doc_ids_of_suffix_idx_file)
+                .map_err(PyOSError::new_err)?
         };
 
         let doc_start_index_file = tempfile().map_err(PyOSError::new_err)?;
@@ -87,15 +88,17 @@ impl DiskMultiFMIndex {
             unsafe { MmapMut::map_mut(&doc_start_index_file).map_err(PyOSError::new_err)? };
         let doc_start_index_slice: &mut [usize] = cast_slice_mut(&mut doc_start_index_mmap[..]);
         doc_start_index_slice.copy_from_slice(
-            &iter::once(0)
+            &(!data_slice.is_empty())
+                .then_some(0)
+                .into_iter()
                 .chain(data_slice.iter().enumerate().filter_map(|(i, &value)| {
                     if value.is_zero() && i + 1 < data_slice.len() {
-                        Some(i)
+                        Some(i + 1)
                     } else {
                         None
                     }
                 }))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
 
         let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx_mmap)?;
@@ -154,6 +157,8 @@ impl MultiFMIndexTrait for DiskMultiFMIndex {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use num_traits::Zero;
     use pyo3::Python;
     use std::collections;
@@ -161,6 +166,7 @@ mod tests {
     use super::*;
 
     fn create_multi_fm_index(data: Vec<String>) -> DiskMultiFMIndex {
+        Python::initialize();
         let data = data
             .iter()
             .flat_map(|doc| doc.chars().map(|c| c as u32 + 1).chain(iter::once(0)))

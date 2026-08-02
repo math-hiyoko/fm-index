@@ -16,7 +16,7 @@ where
     fn get_base_fm_index(&self) -> &Self::BaseFMIndex;
 
     fn len(&self) -> usize {
-        self.get_base_fm_index().len()
+        self.get_base_fm_index().len() - 1 // Exclude the sentinel character
     }
 
     fn max_bit(&self) -> usize {

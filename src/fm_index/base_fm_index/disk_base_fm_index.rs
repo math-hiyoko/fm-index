@@ -25,7 +25,7 @@ pub(crate) struct DiskBaseFMIndex {
 impl DiskBaseFMIndex {
     pub(in crate::fm_index) fn new(data: Mmap, suffix_idx: Mmap) -> PyResult<Self> {
         let len = data.len() / mem::size_of::<u32>();
-        let slice = cast_slice::<u8, u32>(&data);
+        let data_slice = cast_slice::<u8, u32>(&data);
         let suffix_idx = cast_slice::<u8, usize>(&suffix_idx);
 
         let zero_suffix_idx = suffix_idx
@@ -35,7 +35,9 @@ impl DiskBaseFMIndex {
 
         let suffix_idx_sampled_file = tempfile().map_err(PyOSError::new_err)?;
         suffix_idx_sampled_file
-            .set_len((suffix_idx.len().div_ceil(ARRAY_SAMPLING_RATE) * mem::size_of::<usize>()) as u64)
+            .set_len(
+                (suffix_idx.len().div_ceil(ARRAY_SAMPLING_RATE) * mem::size_of::<usize>()) as u64,
+            )
             .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
         let mut suffix_idx_sampled =
@@ -46,12 +48,12 @@ impl DiskBaseFMIndex {
                 .iter()
                 .step_by(ARRAY_SAMPLING_RATE)
                 .copied()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
 
         let mut counts_less = collections::HashMap::new();
         for (cumulative_count, &idx) in suffix_idx.iter().enumerate() {
-            let symbol = slice[idx];
+            let symbol = data_slice[idx];
             counts_less.entry(symbol).or_insert(cumulative_count);
         }
 
@@ -65,13 +67,18 @@ impl DiskBaseFMIndex {
         };
         let burrows_wheeler_transform_slice =
             cast_slice_mut::<u8, u32>(&mut burrows_wheeler_transform);
-        for &idx in suffix_idx {
-            if idx == 0 {
-                burrows_wheeler_transform_slice[idx] = slice[len - 1];
-            } else {
-                burrows_wheeler_transform_slice[idx] = slice[idx - 1];
-            }
-        }
+        burrows_wheeler_transform_slice.copy_from_slice(
+            &suffix_idx
+                .par_iter()
+                .map(|&idx| {
+                    if idx == 0 {
+                        data_slice[len - 1]
+                    } else {
+                        data_slice[idx - 1]
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
         let burrows_wheeler_transform =
             DiskWaveletMatrix::new(burrows_wheeler_transform, burrows_wheeler_transform_file)?;
 

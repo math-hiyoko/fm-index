@@ -1,5 +1,5 @@
 use memmap2::Mmap;
-use pyo3::{PyResult, exceptions::PyOSError};
+use pyo3::PyResult;
 
 use crate::{
     fm_index::{
@@ -39,6 +39,7 @@ mod tests {
     use bytemuck::cast_slice_mut;
     use memmap2::MmapMut;
     use num_traits::Zero;
+    use pyo3::exceptions::PyOSError;
     use tempfile::tempfile;
 
     use super::*;
@@ -49,16 +50,13 @@ mod tests {
             .set_len(((data.chars().count() + 1) * std::mem::size_of::<u32>()) as u64)
             .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
-        let mut data_mmap =
-            unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
+        let mut data_mmap = unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
         let data_slice = cast_slice_mut::<u8, u32>(&mut data_mmap[..]);
         for (i, c) in data.chars().enumerate() {
             data_slice[i] = c as u32 + 1;
         }
         data_slice[data.chars().count()] = 0; // null terminator
-        let data_mmap = data_mmap
-            .make_read_only()
-            .map_err(PyOSError::new_err)?;
+        let data_mmap = data_mmap.make_read_only().map_err(PyOSError::new_err)?;
         DiskFMIndex::new(data_mmap)
     }
 

@@ -51,11 +51,26 @@ def test_str(
     multi_fm_index_ucs2,
     multi_fm_index_ucs4,
 ):
-    assert str(multi_fm_index_empty) == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)"
-    assert str(multi_fm_index_empties) == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)"
-    assert str(multi_fm_index_ucs1) == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)"
-    assert str(multi_fm_index_ucs2) == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)"
-    assert str(multi_fm_index_ucs4) == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)"
+    assert (
+        str(multi_fm_index_empty)
+        == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0, on_disk=False)"
+    )
+    assert (
+        str(multi_fm_index_empties)
+        == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0, on_disk=False)"
+    )
+    assert (
+        str(multi_fm_index_ucs1)
+        == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7, on_disk=False)"
+    )
+    assert (
+        str(multi_fm_index_ucs2)
+        == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14, on_disk=False)"
+    )
+    assert (
+        str(multi_fm_index_ucs4)
+        == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17, on_disk=False)"
+    )
 
 
 def test_item(
@@ -363,7 +378,7 @@ def test_pickle_empty():
 
     assert len(unpickled) == 0
     assert unpickled.item() == []
-    assert str(unpickled) == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)"
+    assert str(unpickled) == "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0, on_disk=False)"
 
 
 def test_pickle_empties():
@@ -373,7 +388,7 @@ def test_pickle_empties():
 
     assert len(unpickled) == 3
     assert unpickled.item() == ["", "", ""]
-    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)"
+    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0, on_disk=False)"
 
 
 def test_pickle_ucs1():
@@ -383,7 +398,9 @@ def test_pickle_ucs1():
 
     assert len(unpickled) == 3
     assert unpickled.item() == ["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"]
-    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)"
+    assert (
+        str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7, on_disk=False)"
+    )
     assert unpickled.count("abc") == {0: 4, 1: 3, 2: 3}
     assert unpickled.locate("abc") == {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}
 
@@ -395,7 +412,9 @@ def test_pickle_ucs2():
 
     assert len(unpickled) == 3
     assert unpickled.item() == ["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"]
-    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)"
+    assert (
+        str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14, on_disk=False)"
+    )
     assert unpickled.count("あいう") == {0: 3, 1: 2, 2: 2}
     assert unpickled.locate("あいう") == {0: [6, 3, 0], 1: [5, 2], 2: [5, 0]}
 
@@ -407,6 +426,8 @@ def test_pickle_ucs4():
 
     assert len(unpickled) == 3
     assert unpickled.item() == ["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"]
-    assert str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)"
+    assert (
+        str(unpickled) == "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17, on_disk=False)"
+    )
     assert unpickled.count("😀😃😀") == {0: 2, 1: 1, 2: 1}
     assert unpickled.locate("😀😃😀") == {0: [2, 0], 1: [2], 2: [0]}

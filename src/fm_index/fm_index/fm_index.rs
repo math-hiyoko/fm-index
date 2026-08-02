@@ -1,4 +1,4 @@
-use pyo3::{PyResult, exceptions::PyRuntimeError};
+use pyo3::PyResult;
 use serde::{Deserialize, Serialize};
 
 use crate::{

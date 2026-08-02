@@ -58,7 +58,7 @@ pub(super) enum MultiFMIndexEnum {
 /// with open("index.pkl", "rb") as f:
 ///     mfm = pickle.load(f)
 /// ```
-#[pyclass(name = "MultiFMIndex", skip_from_py_object)]
+#[pyclass(name = "MultiFMIndex", module = "fm_index", skip_from_py_object)]
 pub(crate) struct PyMultiFMIndex {
     inner: MultiFMIndexEnum,
 }
@@ -74,9 +74,7 @@ impl PyMultiFMIndex {
             .map(|item| {
                 let item_bound = item?;
                 let item_bound = item_bound.cast::<PyString>().map_err(|_| {
-                    PyTypeError::new_err(
-                        "All elements in the sequence must be strings.",
-                    )
+                    PyTypeError::new_err("All elements in the sequence must be strings.")
                 })?;
                 Ok(item_bound.to_str()?.to_string())
             })
@@ -89,41 +87,24 @@ impl PyMultiFMIndex {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let inner = py.detach(|| {
-            match on_disk {
-                true => {
-                    let data_file = tempfile().map_err(PyOSError::new_err)?;
-                    data_file
-                        .set_len((data.len() * std::mem::size_of::<u32>()) as u64)
-                        .map_err(PyOSError::new_err)?;
-                    #[allow(unsafe_code)]
-                    let mut data_mmap = unsafe {
-                        MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)?
-                    };
-                    let data_slice: &mut [u32] = cast_slice_mut(&mut data_mmap);
-                    data_slice.copy_from_slice(&data);
-                    PyResult::Ok(
-                        MultiFMIndexEnum::OnDisk(
-                            sync::Arc::new(
-                                DiskMultiFMIndex::new(
-                                    data_mmap
-                                        .make_read_only()
-                                        .map_err(PyOSError::new_err)?,
-                                )?
-                            )
-                        )
-                    )
-                },
-                false => {
-                    Ok(
-                        MultiFMIndexEnum::InMemory(
-                            sync::Arc::new(
-                                MultiFMIndex::new(data)?
-                            )
-                        )
-                    )
-                },
+        let inner = py.detach(|| match on_disk {
+            true => {
+                let data_file = tempfile().map_err(PyOSError::new_err)?;
+                data_file
+                    .set_len((data.len() * std::mem::size_of::<u32>()) as u64)
+                    .map_err(PyOSError::new_err)?;
+                #[allow(unsafe_code)]
+                let mut data_mmap =
+                    unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
+                let data_slice: &mut [u32] = cast_slice_mut(&mut data_mmap);
+                data_slice.copy_from_slice(&data);
+                PyResult::Ok(MultiFMIndexEnum::OnDisk(sync::Arc::new(
+                    DiskMultiFMIndex::new(data_mmap.make_read_only().map_err(PyOSError::new_err)?)?,
+                )))
             }
+            false => Ok(MultiFMIndexEnum::InMemory(sync::Arc::new(
+                MultiFMIndex::new(data)?,
+            ))),
         })?;
         Ok(PyMultiFMIndex { inner })
     }
@@ -146,33 +127,31 @@ impl PyMultiFMIndex {
     fn __str__(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
         match &self.inner {
             MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
-                let (num_docs, total_num_chars, max_bit) =
-                    py.detach(|| {
-                        let num_docs = disk_multi_fm_index.get_num_docs();
-                        let total_num_chars = disk_multi_fm_index.total_num_chars();
-                        let max_bit = disk_multi_fm_index.max_bit();
-                        PyResult::Ok((num_docs, total_num_chars, max_bit))
-                    })?;
+                let (num_docs, total_num_chars, max_bit) = py.detach(|| {
+                    let num_docs = disk_multi_fm_index.get_num_docs();
+                    let total_num_chars = disk_multi_fm_index.total_num_chars();
+                    let max_bit = disk_multi_fm_index.max_bit();
+                    PyResult::Ok((num_docs, total_num_chars, max_bit))
+                })?;
                 let result = format!(
-                    "DiskMultiFMIndex(num_docs={}, total_num_chars={}, max_bit={}, on_disk=True)",
+                    "MultiFMIndex(num_docs={}, total_num_chars={}, max_bit={}, on_disk=True)",
                     num_docs, total_num_chars, max_bit,
                 );
                 Ok(PyString::new(py, &result).into())
-            },
+            }
             MultiFMIndexEnum::InMemory(multi_fm_index) => {
-                let (num_docs, total_num_chars, max_bit) =
-                    py.detach(|| {
-                        let num_docs = multi_fm_index.get_num_docs();
-                        let total_num_chars = multi_fm_index.total_num_chars();
-                        let max_bit = multi_fm_index.max_bit();
-                        PyResult::Ok((num_docs, total_num_chars, max_bit))
-                    })?;
+                let (num_docs, total_num_chars, max_bit) = py.detach(|| {
+                    let num_docs = multi_fm_index.get_num_docs();
+                    let total_num_chars = multi_fm_index.total_num_chars();
+                    let max_bit = multi_fm_index.max_bit();
+                    PyResult::Ok((num_docs, total_num_chars, max_bit))
+                })?;
                 let result = format!(
                     "MultiFMIndex(num_docs={}, total_num_chars={}, max_bit={}, on_disk=False)",
                     num_docs, total_num_chars, max_bit,
                 );
                 Ok(PyString::new(py, &result).into())
-            },
+            }
         }
     }
 
@@ -232,9 +211,10 @@ impl PyMultiFMIndex {
     fn __getstate__(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
         match &self.inner {
             MultiFMIndexEnum::InMemory(multi_fm_index) => {
-                let serialized = postcard::to_allocvec(multi_fm_index.as_ref()).map_err(|error| {
-                    PyValueError::new_err(format!("Failed to serialize: {}", error))
-                })?;
+                let serialized =
+                    postcard::to_allocvec(multi_fm_index.as_ref()).map_err(|error| {
+                        PyValueError::new_err(format!("Failed to serialize: {}", error))
+                    })?;
                 Ok(PyBytes::new(py, &serialized).into())
             }
             MultiFMIndexEnum::OnDisk(_) => Err(PyTypeError::new_err(
@@ -348,15 +328,21 @@ impl PyMultiFMIndex {
         match doc_id {
             Some(doc_id) => {
                 let count = py.detach(|| match &self.inner {
-                    MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.count_within_doc(doc_id, pattern),
-                    MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.count_within_doc(doc_id, pattern),
+                    MultiFMIndexEnum::InMemory(multi_fm_index) => {
+                        multi_fm_index.count_within_doc(doc_id, pattern)
+                    }
+                    MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                        disk_multi_fm_index.count_within_doc(doc_id, pattern)
+                    }
                 })?;
                 Ok(count.into_pyobject(py)?.into_any().unbind())
             }
             None => {
                 let count = py.detach(|| match &self.inner {
                     MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.count(pattern),
-                    MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.count(pattern),
+                    MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                        disk_multi_fm_index.count(pattern)
+                    }
                 })?;
                 Ok(count.into_py_dict(py)?.into_any().unbind())
             }
@@ -428,28 +414,25 @@ impl PyMultiFMIndex {
     ) -> PyResult<Py<PyAny>> {
         let pattern = pattern.to_str()?;
         match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => {
-                match doc_id {
-                    Some(doc_id) => {
-                        let locate = py.detach(|| multi_fm_index.locate_within_doc(doc_id, pattern))?;
-                        Ok(locate.into_pyobject(py)?.into_any().unbind())
-                    }
-                    None => {
-                        let locate = py.detach(|| multi_fm_index.locate(pattern))?;
-                        Ok(locate.into_py_dict(py)?.into_any().unbind())
-                    }
+            MultiFMIndexEnum::InMemory(multi_fm_index) => match doc_id {
+                Some(doc_id) => {
+                    let locate = py.detach(|| multi_fm_index.locate_within_doc(doc_id, pattern))?;
+                    Ok(locate.into_pyobject(py)?.into_any().unbind())
+                }
+                None => {
+                    let locate = py.detach(|| multi_fm_index.locate(pattern))?;
+                    Ok(locate.into_py_dict(py)?.into_any().unbind())
                 }
             },
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
-                match doc_id {
-                    Some(doc_id) => {
-                        let locate = py.detach(|| disk_multi_fm_index.locate_within_doc(doc_id, pattern))?;
-                        Ok(locate.into_pyobject(py)?.into_any().unbind())
-                    }
-                    None => {
-                        let locate = py.detach(|| disk_multi_fm_index.locate(pattern))?;
-                        Ok(locate.into_py_dict(py)?.into_any().unbind())
-                    }
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => match doc_id {
+                Some(doc_id) => {
+                    let locate =
+                        py.detach(|| disk_multi_fm_index.locate_within_doc(doc_id, pattern))?;
+                    Ok(locate.into_pyobject(py)?.into_any().unbind())
+                }
+                None => {
+                    let locate = py.detach(|| disk_multi_fm_index.locate(pattern))?;
+                    Ok(locate.into_py_dict(py)?.into_any().unbind())
                 }
             },
         }
@@ -517,7 +500,9 @@ impl PyMultiFMIndex {
         let prefix = prefix.to_str()?;
         let result = py.detach(|| match &self.inner {
             MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.starts_with(prefix),
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.starts_with(prefix),
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.starts_with(prefix)
+            }
         })?;
         Ok(PyList::new(py, result)?.unbind())
     }
@@ -574,7 +559,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)",
+                "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -706,7 +691,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_empty_list() {
         Python::initialize();
 
@@ -728,7 +713,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0)",
+                "MultiFMIndex(num_docs=0, total_num_chars=0, max_bit=0, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index
@@ -877,7 +862,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)",
+                "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1018,7 +1003,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_empties() {
         Python::initialize();
 
@@ -1035,7 +1020,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0)",
+                "MultiFMIndex(num_docs=3, total_num_chars=0, max_bit=0, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1193,7 +1178,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)",
+                "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1441,7 +1426,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_ucs1() {
         Python::initialize();
 
@@ -1458,7 +1443,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7)",
+                "MultiFMIndex(num_docs=3, total_num_chars=36, max_bit=7, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1723,7 +1708,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)",
+                "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -1963,7 +1948,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_ucs2() {
         Python::initialize();
 
@@ -1980,7 +1965,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14)",
+                "MultiFMIndex(num_docs=3, total_num_chars=27, max_bit=14, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index
@@ -2237,7 +2222,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -2477,7 +2462,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_ucs4() {
         Python::initialize();
 
@@ -2494,7 +2479,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=19, max_bit=17, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index
@@ -2751,7 +2736,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=35, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=35, max_bit=17, on_disk=False)",
             );
             assert_eq!(
                 multi_fm_index
@@ -2887,7 +2872,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_multi_fm_index_zwj() {
         Python::initialize();
 
@@ -2904,7 +2889,7 @@ mod tests {
                     .unwrap()
                     .extract::<String>(py)
                     .unwrap(),
-                "MultiFMIndex(num_docs=3, total_num_chars=35, max_bit=17)",
+                "MultiFMIndex(num_docs=3, total_num_chars=35, max_bit=17, on_disk=True)",
             );
             assert_eq!(
                 multi_fm_index

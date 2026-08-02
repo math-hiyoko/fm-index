@@ -38,19 +38,14 @@ impl DiskBitVector {
             .set_len(((blocks_slice.len() + 1) * mem::size_of::<usize>()) as u64)
             .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
-        let mut ranks_mmap =
-            unsafe { MmapMut::map_mut(&ranks_file).map_err(PyOSError::new_err)? };
+        let mut ranks_mmap = unsafe { MmapMut::map_mut(&ranks_file).map_err(PyOSError::new_err)? };
         let ranks_slice: &mut [usize] = cast_slice_mut(&mut ranks_mmap[..]);
         ranks_slice.copy_from_slice(
             &iter::once(0)
-                .chain(
-                    blocks_slice
-                        .iter()
-                        .scan(0usize, |acc, block| {
-                            *acc += block.count_ones() as usize;
-                            Some(*acc)
-                        }),
-                )
+                .chain(blocks_slice.iter().scan(0usize, |acc, block| {
+                    *acc += block.count_ones() as usize;
+                    Some(*acc)
+                }))
                 .collect::<Vec<_>>(),
         );
 
@@ -107,9 +102,7 @@ impl DiskBitVector {
 
         Ok(Self {
             len,
-            ranks_mmap: ranks_mmap
-                .make_read_only()
-                .map_err(PyOSError::new_err)?,
+            ranks_mmap: ranks_mmap.make_read_only().map_err(PyOSError::new_err)?,
             _ranks_file: ranks_file,
             blocks_mmap: blocks,
             _blocks_file: blocks_file,
@@ -131,8 +124,7 @@ impl DiskBitVector {
             .set_len(self.ranks_mmap.len() as u64)
             .map_err(PyOSError::new_err)?;
         #[allow(unsafe_code)]
-        let mut ranks_mmap =
-            unsafe { MmapMut::map_mut(&ranks_file).map_err(PyOSError::new_err)? };
+        let mut ranks_mmap = unsafe { MmapMut::map_mut(&ranks_file).map_err(PyOSError::new_err)? };
         ranks_mmap.copy_from_slice(&self.ranks_mmap[..]);
 
         let blocks_file = tempfile().map_err(PyOSError::new_err)?;
@@ -175,13 +167,9 @@ impl DiskBitVector {
 
         Ok(Self {
             len: self.len,
-            ranks_mmap: ranks_mmap
-                .make_read_only()
-                .map_err(PyOSError::new_err)?,
+            ranks_mmap: ranks_mmap.make_read_only().map_err(PyOSError::new_err)?,
             _ranks_file: ranks_file,
-            blocks_mmap: blocks_mmap
-                .make_read_only()
-                .map_err(PyOSError::new_err)?,
+            blocks_mmap: blocks_mmap.make_read_only().map_err(PyOSError::new_err)?,
             _blocks_file: blocks_file,
             select_index_mmap: [
                 select_index_mmap_0
@@ -223,7 +211,7 @@ impl BitVectorTrait for DiskBitVector {
         }
 
         let (block_index, bit_index) = end.div_rem(&(BlockType::BITS as usize));
-        let ranks_slice: &[usize] = cast_slice(&&self.ranks_mmap[..]);
+        let ranks_slice: &[usize] = cast_slice(&self.ranks_mmap[..]);
         let blocks_slice: &[BlockType] = cast_slice(&self.blocks_mmap[..]);
         let mut rank = ranks_slice[block_index];
         if block_index < blocks_slice.len() {

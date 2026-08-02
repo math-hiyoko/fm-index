@@ -33,10 +33,10 @@ def test_len(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
 
 
 def test_str(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
-    assert str(fm_index_empty) == "FMIndex(len=0, max_bit=0)"
-    assert str(fm_index_ucs1) == "FMIndex(len=11, max_bit=7)"
-    assert str(fm_index_ucs2) == "FMIndex(len=13, max_bit=14)"
-    assert str(fm_index_ucs4) == "FMIndex(len=15, max_bit=17)"
+    assert str(fm_index_empty) == "FMIndex(len=0, max_bit=0, on_disk=False)"
+    assert str(fm_index_ucs1) == "FMIndex(len=11, max_bit=7, on_disk=False)"
+    assert str(fm_index_ucs2) == "FMIndex(len=13, max_bit=14, on_disk=False)"
+    assert str(fm_index_ucs4) == "FMIndex(len=15, max_bit=17, on_disk=False)"
 
 
 def test_item(fm_index_empty, fm_index_ucs1, fm_index_ucs2, fm_index_ucs4):
@@ -118,7 +118,7 @@ def test_pickle_empty():
 
     assert len(unpickled) == 0
     assert unpickled.item() == ""
-    assert str(unpickled) == "FMIndex(len=0, max_bit=0)"
+    assert str(unpickled) == "FMIndex(len=0, max_bit=0, on_disk=False)"
 
 
 def test_pickle_ucs1():
@@ -128,7 +128,7 @@ def test_pickle_ucs1():
 
     assert len(unpickled) == 11
     assert unpickled.item() == "mississippi"
-    assert str(unpickled) == "FMIndex(len=11, max_bit=7)"
+    assert str(unpickled) == "FMIndex(len=11, max_bit=7, on_disk=False)"
     assert unpickled.count("issi") == 2
     assert unpickled.locate("issi") == [4, 1]
     assert unpickled.startswith("mis")
@@ -142,7 +142,7 @@ def test_pickle_ucs2():
 
     assert len(unpickled) == 13
     assert unpickled.item() == "にわにはにわにわとりがいる"
-    assert str(unpickled) == "FMIndex(len=13, max_bit=14)"
+    assert str(unpickled) == "FMIndex(len=13, max_bit=14, on_disk=False)"
     assert unpickled.count("にわ") == 3
     assert unpickled.locate("にわ") == [6, 0, 4]
 
@@ -154,6 +154,6 @@ def test_pickle_ucs4():
 
     assert len(unpickled) == 15
     assert unpickled.item() == "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"
-    assert str(unpickled) == "FMIndex(len=15, max_bit=17)"
+    assert str(unpickled) == "FMIndex(len=15, max_bit=17, on_disk=False)"
     assert unpickled.count("🐉🔥🌊") == 3
     assert unpickled.locate("🐉🔥🌊") == [12, 6, 1]

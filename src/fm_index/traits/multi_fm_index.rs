@@ -60,7 +60,7 @@ where
     }
 
     fn doc_offset(&self, k: usize) -> PyResult<(usize, usize)> {
-        let doc_id = self.get_doc_id_of_index().access(k)? as usize;
+        let doc_id = self.get_doc_id_of_index().access(k)?;
         let doc_start = self.get_doc_start_index()[doc_id];
         let offset = self.get_base_fm_index().suffix_idx(k)? - doc_start;
         Ok((doc_id, offset))
@@ -95,11 +95,14 @@ where
         let pattern = pattern.chars().map(|c| c as u32 + 1).collect::<Vec<_>>();
         let (start, end) = self.get_base_fm_index().range_search(pattern)?;
 
+        if start == end {
+            return Ok(collections::HashMap::new());
+        }
+
         let result = self
             .get_doc_id_of_index()
             .range_list(start, end)?
             .into_iter()
-            .map(|(doc_id, count)| (doc_id as usize, count))
             .collect::<collections::HashMap<usize, usize>>();
 
         Ok(result)
@@ -130,12 +133,7 @@ where
             return Ok(Vec::new());
         }
 
-        let result = self
-            .get_doc_id_of_index()
-            .topk(start, end, k)?
-            .into_iter()
-            .map(|(doc_id, count)| (doc_id as usize, count))
-            .collect::<Vec<_>>();
+        let result = self.get_doc_id_of_index().topk(start, end, k)?;
 
         Ok(result)
     }
@@ -210,7 +208,7 @@ where
                         .get_burrows_wheeler_transform()
                         .select(0, rank + 1)?
                         .unwrap();
-                    let doc_id = self.get_doc_id_of_index().access(k)? as usize;
+                    let doc_id = self.get_doc_id_of_index().access(k)?;
                     Ok(doc_id)
                 })
                 .collect::<PyResult<Vec<_>>>()?;

@@ -4,7 +4,7 @@ use bytemuck::cast_slice_mut;
 use memmap2::MmapMut;
 use pyo3::{
     PyResult,
-    exceptions::{PyTypeError, PyRuntimeError, PyValueError},
+    exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
     types::{PyBytes, PyBytesMethods, PyList, PyString, PyStringMethods},
 };
@@ -57,7 +57,7 @@ pub(super) enum FMIndexEnum {
 /// with open("index.pkl", "rb") as f:
 ///     fm = pickle.load(f)
 /// ```
-#[pyclass(name = "FMIndex", skip_from_py_object)]
+#[pyclass(name = "FMIndex", module = "fm_index", skip_from_py_object)]
 pub(crate) struct PyFMIndex {
     inner: FMIndexEnum,
 }
@@ -419,7 +419,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_fm_index_empty() {
         Python::initialize();
 
@@ -565,7 +565,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_fm_index_ucs1() {
         Python::initialize();
 
@@ -766,14 +766,13 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_fm_index_ucs2() {
         Python::initialize();
 
         Python::attach(|py| {
             let fm_index =
-                PyFMIndex::new(py, &PyString::new(py, "にわにはにわにわとりがいる"), true)
-                    .unwrap();
+                PyFMIndex::new(py, &PyString::new(py, "にわにはにわにわとりがいる"), true).unwrap();
 
             assert_eq!(fm_index.__len__(py), 13);
             assert_eq!(
@@ -966,14 +965,13 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_fm_index_ucs4() {
         Python::initialize();
 
         Python::attach(|py| {
             let fm_index =
-                PyFMIndex::new(py, &PyString::new(py, "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"), true)
-                    .unwrap();
+                PyFMIndex::new(py, &PyString::new(py, "🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊"), true).unwrap();
 
             assert_eq!(fm_index.__len__(py), 15);
             assert!(
@@ -1115,7 +1113,7 @@ mod tests {
         });
     }
 
-        #[test]
+    #[test]
     fn test_disk_fm_index_zwj() {
         Python::initialize();
 

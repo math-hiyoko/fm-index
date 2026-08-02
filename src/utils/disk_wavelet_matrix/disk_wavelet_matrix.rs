@@ -45,9 +45,8 @@ where
                 )
                 .map_err(PyOSError::new_err)?;
             #[allow(unsafe_code)]
-            let mut current_layer_bits_mmap = unsafe {
-                MmapMut::map_mut(&current_layer_bits_file).map_err(PyOSError::new_err)?
-            };
+            let mut current_layer_bits_mmap =
+                unsafe { MmapMut::map_mut(&current_layer_bits_file).map_err(PyOSError::new_err)? };
             let current_layer_bits_slice: &mut [BlockType] =
                 cast_slice_mut(&mut current_layer_bits_mmap[..]);
 
@@ -384,13 +383,25 @@ mod tests {
         let wv_u32 = create_u32();
         assert_eq!(
             wv_u32.range_list(1, 9).unwrap(),
-            vec![(1u32, 2usize), (2u32, 1usize), (4u32, 1usize), (5u32, 3usize), (6u32, 1usize),],
+            vec![
+                (1u32, 2usize),
+                (2u32, 1usize),
+                (4u32, 1usize),
+                (5u32, 3usize),
+                (6u32, 1usize),
+            ],
         );
 
         let wv_u128 = create_u128();
         assert_eq!(
             wv_u128.range_list(1, 9).unwrap(),
-            vec![(1u128, 2usize), (2u128, 1usize), (4u128, 1usize), (5u128, 3usize), (6u128, 1usize),],
+            vec![
+                (1u128, 2usize),
+                (2u128, 1usize),
+                (4u128, 1usize),
+                (5u128, 3usize),
+                (6u128, 1usize),
+            ],
         );
     }
 }
