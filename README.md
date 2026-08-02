@@ -10,7 +10,6 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/fm-index?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GREEN&left_text=PyPI%20downloads)](https://pepy.tech/projects/fm-index)
 ![PyPI - Format](https://img.shields.io/pypi/format/fm-index)
 ![Rust](https://img.shields.io/badge/powered%20by-Rust-orange)
-![Unsafe](https://img.shields.io/badge/unsafe-0-success)
 ![GitHub Repo stars](https://img.shields.io/github/stars/math-hiyoko/fm-index)
 
 
@@ -26,7 +25,7 @@ designed for fast substring search on large texts and collections
 - Data-parallel optimizations across index construction and queries
 - Supports single text and multiple documents
 - Pickle serialization support for efficient index persistence
-- Safe Rust (no unsafe)
+- Optional disk-backed storage (`on_disk=True`)
 
 ## Installation
 ```bash
@@ -48,6 +47,12 @@ from fm_index import FMIndex
 
 genome = "ACGTACGTTGACCTGACTGACTGACTGACGATCGATCGATCGATCGATCG"
 fm = FMIndex(data=genome)
+```
+
+FMIndex also supports disk-backed storage for a large document.  
+Set `on_disk=True` to keep its internal data on disk instead of holding it all in memory.  
+```python
+fm = FMIndex(data=genome, on_disk=True)
 ```
 
 ### Count Substring Occurrences
@@ -108,6 +113,12 @@ documents = [
 ]
 
 mfm = MultiFMIndex(data=documents)
+```
+
+MultiFMIndex also supports disk-backed storage for large documents.  
+Set `on_disk=True` to keep its internal data on disk instead of holding it all in memory.  
+```python
+mfm = MultiFMIndex(data=documents, on_disk=True)
 ```
 
 ### Count Across All Documents
@@ -199,10 +210,6 @@ This is particularly useful when:
 - Working with large datasets where index construction is expensive
 - Deploying pre-built indices in production environments
 - Sharing indices across different processes or machines
-
-## Safety
-- Powered by safe Rust
-- Memory-safe by design
 
 ## Development & Testing
 
