@@ -389,26 +389,7 @@ fn suffix_array_inner(data: &Mmap, alphabet_max: u32) -> PyResult<(Mmap, fs::Fil
     }
 }
 
-pub(crate) fn suffix_array_vec(data: &Vec<u32>) -> PyResult<Vec<usize>> {
-    let data_file = tempfile().map_err(PyOSError::new_err)?;
-    data_file
-        .set_len((data.len() * mem::size_of::<u32>()) as u64)
-        .map_err(PyOSError::new_err)?;
-    #[allow(unsafe_code)]
-    let mut data_mmap = unsafe { MmapMut::map_mut(&data_file).map_err(PyOSError::new_err)? };
-    let data_mmap_data: &mut [u32] = cast_slice_mut(&mut data_mmap[..]);
-    data_mmap_data.copy_from_slice(data.as_slice());
-
-    let &alphabet_max = data.iter().max().unwrap_or(&0);
-
-    let (result_mmap, _) = suffix_array_inner(
-        &data_mmap.make_read_only().map_err(PyOSError::new_err)?,
-        alphabet_max,
-    )?;
-    Ok(cast_slice::<u8, usize>(&result_mmap[..]).to_vec())
-}
-
-pub(crate) fn suffix_array_mmap(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
+pub(crate) fn disk_suffix_array(data: &Mmap) -> PyResult<(Mmap, fs::File)> {
     let &alphabet_max = cast_slice::<u8, u32>(&data[..]).iter().max().unwrap_or(&0);
     suffix_array_inner(data, alphabet_max)
 }
@@ -446,9 +427,7 @@ mod tests {
         );
         let (suffix_idx, _) = suffix_array_inner(&create_array_mmap(array), alphabet_max).unwrap();
         assert_eq!(suffix_idx.to_vec(), expected_idx_mmap.to_vec());
-        let suffix_idx_vec = suffix_array_vec(&array.to_vec()).unwrap();
-        assert_eq!(suffix_idx_vec, expected_idx);
-        let (suffix_idx_mmap, _) = suffix_array_mmap(&create_array_mmap(array)).unwrap();
+        let (suffix_idx_mmap, _) = disk_suffix_array(&create_array_mmap(array)).unwrap();
         assert_eq!(suffix_idx_mmap.to_vec(), expected_idx_mmap.to_vec());
     }
 

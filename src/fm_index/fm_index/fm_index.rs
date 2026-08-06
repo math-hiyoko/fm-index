@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     fm_index::{base_fm_index::base_fm_index::BaseFMIndex, traits::fm_index::FMIndexTrait},
-    utils::suffix_array::suffix_array_vec,
+    utils::suffix_array::suffix_array::suffix_array,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -13,7 +13,7 @@ pub(crate) struct FMIndex {
 
 impl FMIndex {
     pub(crate) fn new(data: Vec<u32>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_vec(&data)?;
+        let suffix_idx = suffix_array(&data);
         let base_fm_index = BaseFMIndex::new(data, suffix_idx)?;
         Ok(FMIndex { base_fm_index })
     }

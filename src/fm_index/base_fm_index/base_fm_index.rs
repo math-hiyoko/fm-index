@@ -90,13 +90,13 @@ mod tests {
     use std::iter;
 
     use super::*;
-    use crate::utils::suffix_array::suffix_array_vec;
+    use crate::utils::suffix_array::suffix_array::suffix_array;
 
     #[test]
     fn test_base_fm_index_empty() {
-        let data = vec![0];
-        let suffix_idx = suffix_array_vec(&data).unwrap();
-        let fm_index = BaseFMIndex::new(data, suffix_idx).unwrap();
+        let data: Vec<u32> = vec![0];
+        let suffix_idx = suffix_array(&data);
+        let fm_index = BaseFMIndex::new(data, suffix_idx.to_vec()).unwrap();
 
         assert_eq!(fm_index.suffix_idx(0).unwrap(), 0);
         assert_eq!(fm_index.values().unwrap(), vec![0]);
@@ -110,7 +110,7 @@ mod tests {
             .map(|c| c as u32)
             .chain(iter::once(0))
             .collect::<Vec<_>>();
-        let suffix_idx = suffix_array_vec(&data).unwrap();
+        let suffix_idx = suffix_array(&data);
         let fm_index = BaseFMIndex::new(data.to_vec(), suffix_idx.clone()).unwrap();
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate().take(data.len()) {
@@ -132,7 +132,7 @@ mod tests {
             .map(|c| c as u32)
             .chain(iter::once(0))
             .collect::<Vec<_>>();
-        let suffix_idx = suffix_array_vec(&data).unwrap();
+        let suffix_idx = suffix_array(&data);
         let fm_index = BaseFMIndex::new(data.clone(), suffix_idx.clone()).unwrap();
 
         for (i, &suffix_idx) in suffix_idx.iter().enumerate() {

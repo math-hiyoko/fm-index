@@ -7,7 +7,7 @@ use crate::{
         base_fm_index::base_fm_index::BaseFMIndex, traits::multi_fm_index::MultiFMIndexTrait,
     },
     utils::{
-        suffix_array::suffix_array_vec,
+        suffix_array::suffix_array::suffix_array,
         wavelet_matrix::{bit_vector::BitVector, wavelet_matrix::WaveletMatrix},
     },
 };
@@ -21,7 +21,7 @@ pub(crate) struct MultiFMIndex {
 
 impl MultiFMIndex {
     pub(crate) fn new(data: Vec<u32>) -> PyResult<Self> {
-        let suffix_idx = suffix_array_vec(&data)?;
+        let suffix_idx = suffix_array(&data);
 
         let doc_id_of_index = {
             let doc_ids = data

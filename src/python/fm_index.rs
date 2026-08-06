@@ -3,7 +3,6 @@ use std::{iter, sync};
 use bytemuck::cast_slice_mut;
 use memmap2::MmapMut;
 use pyo3::{
-    PyResult,
     exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
     types::{PyBytes, PyBytesMethods, PyList, PyString, PyStringMethods},

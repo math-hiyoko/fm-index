@@ -1,4 +1,4 @@
-use pyo3::{PyResult, exceptions::PyValueError, prelude::*};
+use pyo3::{exceptions::PyValueError, prelude::*};
 
 use super::multi_fm_index::MultiFMIndexEnum;
 use crate::{
