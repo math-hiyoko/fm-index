@@ -5,7 +5,7 @@ use crate::{
     fm_index::{
         base_fm_index::disk_base_fm_index::DiskBaseFMIndex, traits::fm_index::FMIndexTrait,
     },
-    utils::suffix_array::suffix_array_mmap,
+    utils::suffix_array::disk_suffix_array::disk_suffix_array,
 };
 
 pub(crate) struct DiskFMIndex {
@@ -14,7 +14,7 @@ pub(crate) struct DiskFMIndex {
 
 impl DiskFMIndex {
     pub(crate) fn new(data: Mmap) -> PyResult<Self> {
-        let (suffix_idx, _) = suffix_array_mmap(&data)?;
+        let (suffix_idx, _) = disk_suffix_array(&data)?;
         let base_fm_index = DiskBaseFMIndex::new(data, suffix_idx)?;
         Ok(Self { base_fm_index })
     }

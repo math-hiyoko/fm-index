@@ -15,7 +15,7 @@ use crate::{
         disk_wavelet_matrix::{
             disk_bit_vector::DiskBitVector, disk_wavelet_matrix::DiskWaveletMatrix,
         },
-        suffix_array::suffix_array_mmap,
+        suffix_array::disk_suffix_array::disk_suffix_array,
     },
 };
 
@@ -30,7 +30,7 @@ impl DiskMultiFMIndex {
     pub(crate) fn new(data: Mmap) -> PyResult<Self> {
         let data_slice = cast_slice::<u8, u32>(&data);
 
-        let (suffix_idx_mmap, _) = suffix_array_mmap(&data)?;
+        let (suffix_idx_mmap, _) = disk_suffix_array(&data)?;
         let suffix_idx_slice = cast_slice::<u8, usize>(&suffix_idx_mmap);
 
         let doc_id_of_index = {

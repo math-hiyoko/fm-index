@@ -148,7 +148,9 @@ mod tests {
     use std::iter;
 
     use super::*;
-    use crate::utils::suffix_array::{suffix_array_mmap, suffix_array_vec};
+    use crate::utils::suffix_array::{
+        disk_suffix_array::disk_suffix_array, suffix_array::suffix_array,
+    };
 
     #[test]
     fn test_base_fm_index_empty() {
@@ -160,7 +162,7 @@ mod tests {
         }
         let data_mmap = mmap.make_read_only().unwrap();
 
-        let (suffix_idx, _) = suffix_array_mmap(&data_mmap).unwrap();
+        let (suffix_idx, _) = disk_suffix_array(&data_mmap).unwrap();
 
         let fm_index = DiskBaseFMIndex::new(data_mmap, suffix_idx).unwrap();
 
@@ -183,11 +185,10 @@ mod tests {
         }
         let data_mmap = data_mmap.make_read_only().unwrap();
 
-        let (suffix_idx, _) = suffix_array_mmap(&data_mmap).unwrap();
+        let (suffix_idx, _) = disk_suffix_array(&data_mmap).unwrap();
         let fm_index = DiskBaseFMIndex::new(data_mmap, suffix_idx).unwrap();
 
-        for (i, &suffix_idx) in suffix_array_vec(&raw_data)
-            .unwrap()
+        for (i, &suffix_idx) in suffix_array(&raw_data)
             .iter()
             .enumerate()
             .take(raw_data.len())
@@ -217,11 +218,10 @@ mod tests {
         }
         let data_mmap = data_mmap.make_read_only().unwrap();
 
-        let (suffix_idx, _) = suffix_array_mmap(&data_mmap).unwrap();
+        let (suffix_idx, _) = disk_suffix_array(&data_mmap).unwrap();
         let fm_index = DiskBaseFMIndex::new(data_mmap, suffix_idx).unwrap();
 
-        for (i, &suffix_idx) in suffix_array_vec(&raw_data)
-            .unwrap()
+        for (i, &suffix_idx) in suffix_array(&raw_data)
             .iter()
             .enumerate()
             .take(raw_data.len())
