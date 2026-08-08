@@ -157,8 +157,8 @@ for doc_id, pos in mfm.iter_locate(pattern="検索"):
 # 3 6
 
 # Iterate within a specific document
-for doc_id, pos in mfm.iter_locate(pattern="検索", doc_id=3):
-    print(doc_id, pos)
+for pos in mfm.iter_locate(pattern="検索", doc_id=3):
+    print(pos)
 # 6
 ```
 
