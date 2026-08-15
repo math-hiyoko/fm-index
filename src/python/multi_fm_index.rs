@@ -75,7 +75,7 @@ impl PyMultiFMIndex {
                 let item_bound = item_bound.cast::<PyString>().map_err(|_| {
                     PyTypeError::new_err("All elements in the sequence must be strings.")
                 })?;
-                Ok(item_bound.to_str()?.to_string())
+                item_bound.extract::<String>()
             })
             .collect::<PyResult<Vec<_>>>()?
             .into_iter()
@@ -116,10 +116,12 @@ impl PyMultiFMIndex {
     }
 
     fn __contains__(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         py.detach(|| match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.contains(pattern),
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.contains(pattern),
+            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.contains(pattern.as_str()),
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.contains(pattern.as_str())
+            }
         })
     }
 
@@ -287,10 +289,14 @@ impl PyMultiFMIndex {
     /// # 10
     /// ```
     fn count_all(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         py.detach(|| match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.count_all(pattern),
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.count_all(pattern),
+            MultiFMIndexEnum::InMemory(multi_fm_index) => {
+                multi_fm_index.count_all(pattern.as_str())
+            }
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.count_all(pattern.as_str())
+            }
         })
     }
 
@@ -323,24 +329,26 @@ impl PyMultiFMIndex {
         pattern: &Bound<'_, PyString>,
         doc_id: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         match doc_id {
             Some(doc_id) => {
                 let count = py.detach(|| match &self.inner {
                     MultiFMIndexEnum::InMemory(multi_fm_index) => {
-                        multi_fm_index.count_within_doc(doc_id, pattern)
+                        multi_fm_index.count_within_doc(doc_id, pattern.as_str())
                     }
                     MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
-                        disk_multi_fm_index.count_within_doc(doc_id, pattern)
+                        disk_multi_fm_index.count_within_doc(doc_id, pattern.as_str())
                     }
                 })?;
                 Ok(count.into_pyobject(py)?.into_any().unbind())
             }
             None => {
                 let count = py.detach(|| match &self.inner {
-                    MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.count(pattern),
+                    MultiFMIndexEnum::InMemory(multi_fm_index) => {
+                        multi_fm_index.count(pattern.as_str())
+                    }
                     MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
-                        disk_multi_fm_index.count(pattern)
+                        disk_multi_fm_index.count(pattern.as_str())
                     }
                 })?;
                 Ok(count.into_py_dict(py)?.into_any().unbind())
@@ -372,10 +380,12 @@ impl PyMultiFMIndex {
         pattern: &Bound<'_, PyString>,
         k: usize,
     ) -> PyResult<Py<PyList>> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         let result = py.detach(|| match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.topk(pattern, k),
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.topk(pattern, k),
+            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.topk(pattern.as_str(), k),
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.topk(pattern.as_str(), k)
+            }
         })?;
         Ok(PyList::new(py, result)?.unbind())
     }
@@ -411,26 +421,28 @@ impl PyMultiFMIndex {
         pattern: &Bound<'_, PyString>,
         doc_id: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         match &self.inner {
             MultiFMIndexEnum::InMemory(multi_fm_index) => match doc_id {
                 Some(doc_id) => {
-                    let locate = py.detach(|| multi_fm_index.locate_within_doc(doc_id, pattern))?;
+                    let locate =
+                        py.detach(|| multi_fm_index.locate_within_doc(doc_id, pattern.as_str()))?;
                     Ok(locate.into_pyobject(py)?.into_any().unbind())
                 }
                 None => {
-                    let locate = py.detach(|| multi_fm_index.locate(pattern))?;
+                    let locate = py.detach(|| multi_fm_index.locate(pattern.as_str()))?;
                     Ok(locate.into_py_dict(py)?.into_any().unbind())
                 }
             },
             MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => match doc_id {
                 Some(doc_id) => {
-                    let locate =
-                        py.detach(|| disk_multi_fm_index.locate_within_doc(doc_id, pattern))?;
+                    let locate = py.detach(|| {
+                        disk_multi_fm_index.locate_within_doc(doc_id, pattern.as_str())
+                    })?;
                     Ok(locate.into_pyobject(py)?.into_any().unbind())
                 }
                 None => {
-                    let locate = py.detach(|| disk_multi_fm_index.locate(pattern))?;
+                    let locate = py.detach(|| disk_multi_fm_index.locate(pattern.as_str()))?;
                     Ok(locate.into_py_dict(py)?.into_any().unbind())
                 }
             },
@@ -478,9 +490,9 @@ impl PyMultiFMIndex {
         pattern: &Bound<'_, PyString>,
         doc_id: Option<usize>,
     ) -> PyResult<IterLocate> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         let inner = self.inner.clone();
-        py.detach(|| IterLocate::new(doc_id, pattern, inner))
+        py.detach(|| IterLocate::new(doc_id, pattern.as_str(), inner))
     }
 
     /// List document indices whose content starts with the prefix.
@@ -496,11 +508,13 @@ impl PyMultiFMIndex {
     /// # [2, 0]
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let prefix = prefix.to_str()?;
+        let prefix = prefix.extract::<String>()?;
         let result = py.detach(|| match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.starts_with(prefix),
+            MultiFMIndexEnum::InMemory(multi_fm_index) => {
+                multi_fm_index.starts_with(prefix.as_str())
+            }
             MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
-                disk_multi_fm_index.starts_with(prefix)
+                disk_multi_fm_index.starts_with(prefix.as_str())
             }
         })?;
         Ok(PyList::new(py, result)?.unbind())
@@ -519,10 +533,12 @@ impl PyMultiFMIndex {
     /// # [2, 1, 0]
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let suffix = suffix.to_str()?;
+        let suffix = suffix.extract::<String>()?;
         let result = py.detach(|| match &self.inner {
-            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.ends_with(suffix),
-            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => disk_multi_fm_index.ends_with(suffix),
+            MultiFMIndexEnum::InMemory(multi_fm_index) => multi_fm_index.ends_with(suffix.as_str()),
+            MultiFMIndexEnum::OnDisk(disk_multi_fm_index) => {
+                disk_multi_fm_index.ends_with(suffix.as_str())
+            }
         })?;
         Ok(PyList::new(py, result)?.unbind())
     }
