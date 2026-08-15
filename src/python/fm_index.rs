@@ -5,7 +5,7 @@ use memmap2::MmapMut;
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
-    types::{PyBytes, PyBytesMethods, PyList, PyString, PyStringMethods},
+    types::{PyBytes, PyBytesMethods, PyList, PyString},
 };
 use tempfile::tempfile;
 
@@ -67,7 +67,7 @@ impl PyFMIndex {
     #[new]
     #[pyo3(signature = (data, on_disk=false))]
     fn new(py: Python<'_>, data: &Bound<'_, PyString>, on_disk: bool) -> PyResult<Self> {
-        let data = data.to_str()?;
+        let data = data.extract::<String>()?;
         let inner = py.detach(move || match on_disk {
             true => {
                 let data_file = tempfile().map_err(PyRuntimeError::new_err)?;
@@ -109,10 +109,10 @@ impl PyFMIndex {
     }
 
     fn __contains__(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<bool> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         py.detach(|| match &self.inner {
-            FMIndexEnum::InMemory(fm_index) => fm_index.contains(pattern),
-            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.contains(pattern),
+            FMIndexEnum::InMemory(fm_index) => fm_index.contains(pattern.as_str()),
+            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.contains(pattern.as_str()),
         })
     }
 
@@ -267,10 +267,10 @@ impl PyFMIndex {
     /// # 2
     /// ```
     fn count(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<usize> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         py.detach(|| match &self.inner {
-            FMIndexEnum::InMemory(fm_index) => fm_index.count(pattern),
-            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.count(pattern),
+            FMIndexEnum::InMemory(fm_index) => fm_index.count(pattern.as_str()),
+            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.count(pattern.as_str()),
         })
     }
 
@@ -290,10 +290,10 @@ impl PyFMIndex {
     /// # [4, 1]
     /// ```
     fn locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<Py<PyList>> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         let locate = py.detach(|| match &self.inner {
-            FMIndexEnum::InMemory(fm_index) => fm_index.locate(pattern),
-            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.locate(pattern),
+            FMIndexEnum::InMemory(fm_index) => fm_index.locate(pattern.as_str()),
+            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.locate(pattern.as_str()),
         })?;
         Ok(PyList::new(py, &locate)?.unbind())
     }
@@ -319,12 +319,12 @@ impl PyFMIndex {
     /// # 1
     /// ```
     fn iter_locate(&self, py: Python<'_>, pattern: &Bound<'_, PyString>) -> PyResult<IterLocate> {
-        let pattern = pattern.to_str()?;
+        let pattern = pattern.extract::<String>()?;
         let fm_index = match &self.inner {
             FMIndexEnum::InMemory(fm_index) => FMIndexEnum::InMemory(fm_index.clone()),
             FMIndexEnum::OnDisk(disk_fm_index) => FMIndexEnum::OnDisk(disk_fm_index.clone()),
         };
-        py.detach(move || IterLocate::new(pattern, fm_index))
+        py.detach(move || IterLocate::new(pattern.as_str(), fm_index))
     }
 
     /// Check if the indexed string starts with the given prefix.
@@ -340,10 +340,10 @@ impl PyFMIndex {
     /// # True
     /// ```
     fn startswith(&self, py: Python<'_>, prefix: &Bound<'_, PyString>) -> PyResult<bool> {
-        let prefix = prefix.to_str()?;
+        let prefix = prefix.extract::<String>()?;
         py.detach(|| match &self.inner {
-            FMIndexEnum::InMemory(fm_index) => fm_index.starts_with(prefix),
-            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.starts_with(prefix),
+            FMIndexEnum::InMemory(fm_index) => fm_index.starts_with(prefix.as_str()),
+            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.starts_with(prefix.as_str()),
         })
     }
 
@@ -360,10 +360,10 @@ impl PyFMIndex {
     /// # True
     /// ```
     fn endswith(&self, py: Python<'_>, suffix: &Bound<'_, PyString>) -> PyResult<bool> {
-        let suffix = suffix.to_str()?;
+        let suffix = suffix.extract::<String>()?;
         py.detach(|| match &self.inner {
-            FMIndexEnum::InMemory(fm_index) => fm_index.ends_with(suffix),
-            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.ends_with(suffix),
+            FMIndexEnum::InMemory(fm_index) => fm_index.ends_with(suffix.as_str()),
+            FMIndexEnum::OnDisk(disk_fm_index) => disk_fm_index.ends_with(suffix.as_str()),
         })
     }
 }
