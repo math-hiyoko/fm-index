@@ -343,7 +343,7 @@ mod tests {
         // Error: start > end
         assert_eq!(
             wm.range_list(10, 5).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
+            "ValueError: start must be less than or equal to end"
         );
 
         // Error: end > len
@@ -423,15 +423,11 @@ mod tests {
 
         let wm = create_test_wavelet_matrix();
 
-        // Error: start >= end
-        assert_eq!(
-            wm.topk(5, 5, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
+        assert_eq!(wm.topk(5, 5, 1).unwrap(), Vec::new());
 
         assert_eq!(
             wm.topk(10, 5, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
+            "ValueError: start must be less than or equal to end"
         );
 
         // Error: end > len
@@ -453,11 +449,7 @@ mod tests {
 
         let wm = WaveletMatrix::<u32>::new(vec![]).unwrap();
 
-        // Empty matrix should fail
-        assert_eq!(
-            wm.topk(0, 0, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
+        assert_eq!(wm.topk(0, 0, 1).unwrap(), Vec::new());
     }
 
     #[test]

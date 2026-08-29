@@ -375,19 +375,19 @@ def test_large_texts():
 
 def test_pickle_empty():
     multi_fm_index = MultiFMIndex([], on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk MultiFMIndex"):
         pickle.dumps(multi_fm_index)
 
 
 def test_pickle_empties():
     multi_fm_index = MultiFMIndex(["", "", ""], on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk MultiFMIndex"):
         pickle.dumps(multi_fm_index)
 
 
 def test_pickle_ucs1():
     multi_fm_index = MultiFMIndex(["abcabcabcabc", "xxabcabcxxabc", "abcababcabc"], on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk MultiFMIndex"):
         pickle.dumps(multi_fm_index)
 
 
@@ -395,11 +395,11 @@ def test_pickle_ucs2():
     multi_fm_index = MultiFMIndex(
         ["あいうあいうあいう", "xxあいうあいうxx", "あいうあいあいう"], on_disk=True
     )
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk MultiFMIndex"):
         pickle.dumps(multi_fm_index)
 
 
 def test_pickle_ucs4():
     multi_fm_index = MultiFMIndex(["😀😃😀😃😀😃", "xx😀😃😀😃xx", "😀😃😀😀😃"], on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk MultiFMIndex"):
         pickle.dumps(multi_fm_index)
