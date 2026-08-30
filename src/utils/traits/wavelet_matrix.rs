@@ -189,14 +189,19 @@ where
 
     // Count values in [start, end) with the top-k highest frequencies.
     fn topk(&self, start: usize, end: usize, k: usize) -> PyResult<Vec<(NumberType, usize)>> {
-        if start >= end {
-            return Err(PyValueError::new_err("start must be less than end"));
+        if start > end {
+            return Err(PyValueError::new_err(
+                "start must be less than or equal to end",
+            ));
         }
         if end > self.len() {
             return Err(PyIndexError::new_err("index out of bounds"));
         }
         if k.is_zero() {
             return Err(PyValueError::new_err("k must be greater than 0"));
+        }
+        if start == end {
+            return Ok(Vec::new());
         }
 
         #[derive(cmp::PartialEq, Eq, PartialOrd, Ord)]
@@ -236,32 +241,24 @@ where
             let layer = &self.get_layers()[depth];
             let zeros_count = self.get_zeros_count_per_layer()[depth];
 
-            let start_zero = layer.rank(false, start)?;
-            let end_zero = layer.rank(false, end)?;
-            debug_assert!(start_zero <= end_zero);
+            for (bit, offset) in [(false, 0), (true, zeros_count)] {
+                let next_start = layer.rank(bit, start)? + offset;
+                let next_end = layer.rank(bit, end)? + offset;
+                debug_assert!(next_start <= next_end);
 
-            let start_one = zeros_count + layer.rank(true, start)?;
-            let end_one = zeros_count + layer.rank(true, end)?;
-            debug_assert!(start_one <= end_one);
-
-            if start_zero != end_zero {
-                heap.push(QueueItem {
-                    len: end_zero - start_zero,
-                    depth: depth + 1,
-                    start: start_zero,
-                    end: end_zero,
-                    value: value << 1usize,
-                });
-            }
-
-            if end_one != start_one {
-                heap.push(QueueItem {
-                    len: end_one - start_one,
-                    depth: depth + 1,
-                    start: start_one,
-                    end: end_one,
-                    value: (value << 1usize) | NumberType::one(),
-                });
+                if next_start != next_end {
+                    heap.push(QueueItem {
+                        len: next_end - next_start,
+                        depth: depth + 1,
+                        start: next_start,
+                        end: next_end,
+                        value: if bit {
+                            (value << 1usize) | NumberType::one()
+                        } else {
+                            value << 1usize
+                        },
+                    });
+                }
             }
         }
 
@@ -270,11 +267,16 @@ where
 
     /// Get a list of values c in the range [start, end) such that lower <= c < upper.
     fn range_list(&self, start: usize, end: usize) -> PyResult<Vec<(NumberType, usize)>> {
-        if start >= end {
-            return Err(PyValueError::new_err("start must be less than end"));
+        if start > end {
+            return Err(PyValueError::new_err(
+                "start must be less than or equal to end",
+            ));
         }
         if end > self.len() {
             return Err(PyIndexError::new_err("index out of bounds"));
+        }
+        if start == end {
+            return Ok(Vec::new());
         }
 
         struct StackItem<T> {
@@ -288,36 +290,29 @@ where
             value: NumberType::zero(),
         }];
 
-        for (layer, zeros_count) in iter::zip(self.get_layers(), self.get_zeros_count_per_layer()) {
+        for (layer, &zeros_count) in iter::zip(self.get_layers(), self.get_zeros_count_per_layer())
+        {
             stack = stack.into_iter().try_fold(
                 Vec::new(),
                 |mut acc, item| -> PyResult<Vec<StackItem<NumberType>>> {
                     let StackItem { start, end, value } = item;
 
-                    let start_zero = layer.rank(false, start)?;
-                    let end_zero = layer.rank(false, end)?;
-                    debug_assert!(start_zero <= end_zero);
+                    for (bit, offset) in [(false, 0), (true, zeros_count)] {
+                        let next_start = layer.rank(bit, start)? + offset;
+                        let next_end = layer.rank(bit, end)? + offset;
+                        debug_assert!(next_start <= next_end);
 
-                    let start_one = zeros_count + layer.rank(true, start)?;
-                    let end_one = zeros_count + layer.rank(true, end)?;
-                    debug_assert!(start_one <= end_one);
-
-                    let next_value_zero = value << 1;
-                    if start_zero != end_zero {
-                        acc.push(StackItem {
-                            start: start_zero,
-                            end: end_zero,
-                            value: next_value_zero,
-                        });
-                    }
-
-                    let next_value_one = (value << 1) | NumberType::one();
-                    if start_one != end_one {
-                        acc.push(StackItem {
-                            start: start_one,
-                            end: end_one,
-                            value: next_value_one,
-                        });
+                        if next_start != next_end {
+                            acc.push(StackItem {
+                                start: next_start,
+                                end: next_end,
+                                value: if bit {
+                                    (value << 1usize) | NumberType::one()
+                                } else {
+                                    value << 1usize
+                                },
+                            });
+                        }
                     }
 
                     Ok(acc)
@@ -426,14 +421,8 @@ mod tests {
         );
         assert_eq!(wv.rank(0, 0).unwrap(), 0);
         assert_eq!(wv.select(0, 1).unwrap(), None);
-        assert_eq!(
-            wv.topk(0, 0, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
-        assert_eq!(
-            wv.range_list(0, 0).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
+        assert_eq!(wv.topk(0, 0, 1).unwrap(), Vec::new());
+        assert_eq!(wv.range_list(0, 0).unwrap(), Vec::new());
     }
 
     #[test]

@@ -216,14 +216,8 @@ mod tests {
             wv_u32.select(0u32, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
-        assert_eq!(
-            wv_u32.topk(0, 0, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
-        assert_eq!(
-            wv_u32.range_list(0, 0).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
+        assert_eq!(wv_u32.topk(0, 0, 1).unwrap(), Vec::new());
+        assert_eq!(wv_u32.range_list(0, 0).unwrap(), Vec::new());
 
         let mmap_empty = MmapMut::map_anon(0).unwrap();
         let wv_u128 = DiskWaveletMatrix::<u128>::new(mmap_empty, tempfile().unwrap()).unwrap();
@@ -239,14 +233,8 @@ mod tests {
             wv_u128.select(0u128, 0).unwrap_err().to_string(),
             "ValueError: kth must be greater than 0"
         );
-        assert_eq!(
-            wv_u128.topk(0, 0, 1).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
-        assert_eq!(
-            wv_u128.range_list(0, 0).unwrap_err().to_string(),
-            "ValueError: start must be less than end"
-        );
+        assert_eq!(wv_u128.topk(0, 0, 1).unwrap(), Vec::new());
+        assert_eq!(wv_u128.range_list(0, 0).unwrap(), Vec::new());
     }
 
     #[test]

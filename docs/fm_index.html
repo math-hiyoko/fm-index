@@ -169,7 +169,7 @@ are optimized using data-parallel execution.  </p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">FMIndex</span>
 
-<span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">&quot;mississippi&quot;</span><span class="p">,</span> <span class="n">on_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># in-memory</span>
+<span class="n">fm</span> <span class="o">=</span> <span class="n">FMIndex</span><span class="p">(</span><span class="s2">"mississippi"</span><span class="p">,</span> <span class="n">on_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># in-memory</span>
 </code></pre>
 </div>
 
@@ -181,11 +181,11 @@ are optimized using data-parallel execution.  </p>
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 
 <span class="c1"># Save index (available only for in-memory FMIndex)</span>
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;index.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"index.pkl"</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">fm</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
 
 <span class="c1"># Load index (available only for in-memory FMIndex)</span>
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;index.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"index.pkl"</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="n">fm</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </code></pre>
 </div>
@@ -227,7 +227,7 @@ are optimized using data-parallel execution.  </p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-<span class="c1"># &#39;mississippi&#39;</span>
+<span class="c1"># 'mississippi'</span>
 </code></pre>
 </div>
 </div>
@@ -256,7 +256,7 @@ are optimized using data-parallel execution.  </p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">"issi"</span><span class="p">)</span>
 <span class="c1"># True</span>
 </code></pre>
 </div>
@@ -286,7 +286,7 @@ are optimized using data-parallel execution.  </p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"issi"</span><span class="p">)</span>
 <span class="c1"># 2</span>
 </code></pre>
 </div>
@@ -319,7 +319,7 @@ enumerate large result sets.<br />
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">"issi"</span><span class="p">)</span>
 <span class="c1"># [4, 1]</span>
 </code></pre>
 </div>
@@ -354,7 +354,7 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="nb">iter</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;issi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="nb">iter</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">"issi"</span><span class="p">)</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
 <span class="c1"># 4</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
@@ -387,7 +387,7 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;mi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"mi"</span><span class="p">)</span>
 <span class="c1"># True</span>
 </code></pre>
 </div>
@@ -417,7 +417,7 @@ one by one as an iterator instead of allocating a list.</p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">fm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"pi"</span><span class="p">)</span>
 <span class="c1"># True</span>
 </code></pre>
 </div>
@@ -462,7 +462,7 @@ making multi-document search efficient in practice.</p>
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fm_index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFMIndex</span>
 
-<span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">,</span> <span class="s2">&quot;xxabcabcxxabc&quot;</span><span class="p">,</span> <span class="s2">&quot;abcababcabc&quot;</span><span class="p">],</span> <span class="n">on_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># in-memory</span>
+<span class="n">mfm</span> <span class="o">=</span> <span class="n">MultiFMIndex</span><span class="p">([</span><span class="s2">"abcabcabcabc"</span><span class="p">,</span> <span class="s2">"xxabcabcxxabc"</span><span class="p">,</span> <span class="s2">"abcababcabc"</span><span class="p">],</span> <span class="n">on_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># in-memory</span>
 </code></pre>
 </div>
 
@@ -474,11 +474,11 @@ making multi-document search efficient in practice.</p>
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 
 <span class="c1"># Save index (available only for in-memory FMIndex)</span>
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;index.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"index.pkl"</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">mfm</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
 
 <span class="c1"># Load index (available only for in-memory FMIndex)</span>
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;index.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"index.pkl"</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="n">mfm</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </code></pre>
 </div>
@@ -520,7 +520,7 @@ making multi-document search efficient in practice.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-<span class="c1"># [&#39;abcabcabcabc&#39;, &#39;xxabcabcxxabc&#39;, &#39;abcababcabc&#39;]</span>
+<span class="c1"># ['abcabcabcabc', 'xxabcabcxxabc', 'abcababcabc']</span>
 </code></pre>
 </div>
 </div>
@@ -549,7 +549,7 @@ making multi-document search efficient in practice.</p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;abcabcabcabc&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">"abcabcabcabc"</span><span class="p">)</span>
 <span class="c1"># True</span>
 </code></pre>
 </div>
@@ -579,7 +579,7 @@ making multi-document search efficient in practice.</p>
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">count_all</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">count_all</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="c1"># 10</span>
 </code></pre>
 </div>
@@ -619,11 +619,11 @@ making multi-document search efficient in practice.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="c1"># Count across all documents (returns {doc_index: count})</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="c1"># {0: 4, 1: 3, 2: 3}</span>
 
 <span class="c1"># Count within a specific document (returns int)</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="c1"># 4</span>
 </code></pre>
 </div>
@@ -655,11 +655,11 @@ of the given pattern.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="c1"># Get top 2 documents containing the pattern</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="c1"># [(0, 4), (1, 3)]</span>
 
 <span class="c1"># If fewer than k documents match, all matching documents are returned</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 <span class="c1"># [(0, 4), (1, 3), (2, 3)]</span>
 </code></pre>
 </div>
@@ -701,11 +701,11 @@ Internally, result enumeration and aggregation may be parallelized.
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="c1"># Locate across all documents (returns {doc_index: [positions]})</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="c1"># {0: [9, 6, 3, 0], 1: [10, 2, 5], 2: [8, 0, 5]}</span>
 
 <span class="c1"># Locate within a specific document (returns list[int])</span>
-<span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mfm</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="c1"># [9, 6, 3, 0]</span>
 </code></pre>
 </div>
@@ -717,7 +717,7 @@ Internally, result enumeration and aggregation may be parallelized.
                                 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">iter_locate</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="bp">self</span>,</span><span class="param">	<span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">doc_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></span><span class="return-annotation">) -> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">|</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span>:</span></span>
+        <span class="name">iter_locate</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="bp">self</span>,</span><span class="param">	<span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">doc_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></span><span class="return-annotation">) -> <span class="n">Union</span><span class="p">[</span><span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">],</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]]</span>:</span></span>
 
         
     </div>
@@ -750,14 +750,14 @@ When <code>doc_id</code> is specified, yields only <code>position</code> values.
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="c1"># Iterate across all documents</span>
-<span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
 <span class="c1"># (2, 8)</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
 <span class="c1"># (1, 10)</span>
 
 <span class="c1"># Iterate within a specific document</span>
-<span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">iter</span> <span class="o">=</span> <span class="n">mfm</span><span class="o">.</span><span class="n">iter_locate</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">,</span> <span class="n">doc_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
 <span class="c1"># 9</span>
 <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">)</span>
@@ -791,7 +791,7 @@ When <code>doc_id</code> is specified, yields only <code>position</code> values.
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="c1"># [2, 0]</span>
 </code></pre>
 </div>
@@ -821,7 +821,7 @@ When <code>doc_id</code> is specified, yields only <code>position</code> values.
 <h4 id="examples">Examples</h4>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;abc&quot;</span><span class="p">)</span>
+<pre><span></span><code><span class="n">mfm</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"abc"</span><span class="p">)</span>
 <span class="c1"># [2, 1, 0]</span>
 </code></pre>
 </div>

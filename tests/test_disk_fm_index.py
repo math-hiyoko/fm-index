@@ -113,23 +113,23 @@ def test_large():
 
 def test_pickle_empty():
     fm_index = FMIndex("", on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk FMIndex"):
         pickle.dumps(fm_index)
 
 
 def test_pickle_ucs1():
     fm_index = FMIndex("mississippi", on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk FMIndex"):
         pickle.dumps(fm_index)
 
 
 def test_pickle_ucs2():
     fm_index = FMIndex("にわにはにわにわとりがいる", on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk FMIndex"):
         pickle.dumps(fm_index)
 
 
 def test_pickle_ucs4():
     fm_index = FMIndex("🏰🐉🔥🌊🏰 🐉🔥🌊 ⚔️🐉🔥🌊", on_disk=True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="__reduce__ is not supported for on-disk FMIndex"):
         pickle.dumps(fm_index)
