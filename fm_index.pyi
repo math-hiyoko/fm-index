@@ -1,4 +1,5 @@
-from typing import Generator, Iterable, Self
+from collections.abc import Iterable
+from typing import Generator, Self
 
 class FMIndex:
     def __init__(self, data: str, on_disk: bool = False) -> None: ...
