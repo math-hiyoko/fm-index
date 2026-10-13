@@ -7,7 +7,7 @@ from fm_index import MultiFMIndex
 
 
 @pytest.fixture
-def random_data(size: tuple[int, int], ucs: Literal["ucs1", "ucs2", "ucs4"]) -> str:
+def random_data(size: tuple[int, int], ucs: Literal["ucs1", "ucs2", "ucs4"]) -> list[str]:
     rng = np.random.default_rng(42)
     if ucs == "ucs1":
         codepoints = rng.integers(0x20, 0x80, size=size, dtype=np.uint8)
@@ -30,7 +30,7 @@ def random_data(size: tuple[int, int], ucs: Literal["ucs1", "ucs2", "ucs4"]) -> 
 
 
 @pytest.fixture
-def random_multi_fm_index(random_data: str) -> MultiFMIndex:
+def random_multi_fm_index(random_data: list[str]) -> MultiFMIndex:
     return MultiFMIndex(random_data)
 
 
